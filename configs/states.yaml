@@ -1,0 +1,34 @@
+# Retention Radar Lifecycle States Definition
+
+states:
+  - name: New
+    description: "First-ever purchase falls in period t, and t > warm-up (periods 1–3)"
+    transient: true
+    order: 1
+  - name: Champion
+    description: "Purchased in period t; trailing 3-period spend in top 25% of active households"
+    transient: true
+    order: 2
+  - name: Regular
+    description: "Purchased in period t, and neither New nor Champion"
+    transient: true
+    order: 3
+  - name: At-Risk
+    description: "No purchase in period t; purchased in t-1 (1 consecutive missed period)"
+    transient: true
+    order: 4
+  - name: Dormant
+    description: "2 to 3 consecutive missed periods"
+    transient: true
+    order: 5
+  - name: Lapsed
+    description: "4 or more consecutive missed periods (absorbing state in primary Markov model)"
+    transient: false
+    absorbing: true
+    order: 6
+
+champion_top_pct: 0.25
+trailing_spend_periods: 3
+lapsed_threshold_missed_periods: 4
+dormant_min_missed_periods: 2
+dormant_max_missed_periods: 3

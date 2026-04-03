@@ -1,0 +1,47 @@
+# Retention Radar Project Configuration
+# All business assumptions are explicitly tagged with # assumption
+
+seed: 42
+period_days: 28
+warmup_periods: 3
+
+# Period partitions (1-indexed, 28-day periods)
+train_periods: [4, 19]
+test_periods: [20, 25]
+
+# Lifecycle and churn definitions
+churn_horizon_periods: 2
+lapse_missed_periods: 4
+
+# Financial & business assumptions
+annual_discount_rate: 0.10      # assumption: corporate cost of capital / hurdle rate
+gross_margin: 0.25              # assumption: grocery retail category gross margin
+offer_cost: 2.00                # assumption: cost per targeted retention offer in dollars
+save_rate_grid: [0.05, 0.10, 0.15, 0.20] # assumption: customer response / save rates
+
+# Statistical & optimization parameters
+bootstrap_reps: 1000
+smoothing_alpha: 0.5
+optuna_trials: 50
+bi_tool: tableau                # assumption: tableau or powerbi
+
+# Profiles
+profiles:
+  default:
+    bootstrap_reps: 1000
+    optuna_trials: 50
+  ci:
+    bootstrap_reps: 50
+    optuna_trials: 5
+
+# Filesystem and artifact paths
+paths:
+  data_raw: data/raw
+  warehouse_db: data/warehouse.duckdb
+  data_outputs: data/outputs
+  bi_exports: data/outputs/bi
+  models_dir: data/outputs/models
+  reports_dir: reports
+  figures_dir: reports/figures
+  sql_results: reports/sql_results
+  sample_fixture: tests/fixtures/sample
