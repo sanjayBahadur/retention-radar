@@ -1,0 +1,21 @@
+age_desc,marital_status_code,income_desc,homeowner_desc,hh_comp_desc,household_size_desc,kid_category_desc,household_key
+65+,U,100-124K,Probable Renter,Single Male,1,1,1
+55-64,U,15-24K,Homeowner,Family,3,None/Unknown,2
+25-34,U,Under 15K,Probable Renter,Single Male,4+,None/Unknown,3
+65+,B,35-49K,Renter,Family,4+,2+,4
+35-44,B,50-74K,Homeowner,Single Male,2,None/Unknown,5
+45-54,A,50-74K,Probable Renter,Single Female,2,None/Unknown,6
+35-44,U,15-24K,Homeowner,Single Male,3,2+,7
+19-24,U,100-124K,Renter,2 Adults,1,None/Unknown,8
+65+,A,50-74K,Homeowner,Family,2,2+,9
+19-24,U,15-24K,Probable Renter,2 Adults,1,2+,10
+25-34,A,100-124K,Probable Renter,Family,4+,1,11
+25-34,U,100-124K,Probable Renter,Family,3,None/Unknown,12
+25-34,U,35-49K,Renter,Family,4+,None/Unknown,13
+19-24,A,Under 15K,Renter,2 Adults,4+,None/Unknown,14
+19-24,B,50-74K,Renter,Single Male,4+,1,15
+55-64,A,50-74K,Probable Renter,Single Male,1,None/Unknown,16
+65+,B,Under 15K,Probable Renter,Single Female,4+,1,17
+19-24,U,50-74K,Homeowner,Single Male,1,None/Unknown,18
+25-34,A,100-124K,Renter,Family,2,1,19
+45-54,B,Under 15K,Homeowner,Single Male,3,None/Unknown,20

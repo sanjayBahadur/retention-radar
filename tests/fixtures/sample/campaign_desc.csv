@@ -1,0 +1,11 @@
+description,campaign,start_day,end_day
+TypeA,1,1,40
+TypeB,2,61,100
+TypeC,3,121,160
+TypeA,4,181,220
+TypeB,5,241,280
+TypeC,6,301,340
+TypeA,7,361,400
+TypeB,8,421,460
+TypeC,9,481,520
+TypeA,10,541,580
