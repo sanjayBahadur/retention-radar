@@ -1,0 +1,11 @@
+retention_radar:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "../data/warehouse.duckdb"
+      threads: 4
+    test:
+      type: duckdb
+      path: "../data/warehouse_test.duckdb"
+      threads: 4
