@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: dim_household
+    description: "Household dimension containing demographics and lifetime aggregates."
+    columns:
+      - name: household_key
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_product
+    description: "Product dimension containing hierarchy and branding metadata."
+    columns:
+      - name: product_id
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_baskets
+    description: "Shopping occasions / basket-grain transactions."
+    columns:
+      - name: basket_id
+        tests:
+          - unique
+          - not_null
+      - name: household_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_household')
+              field: household_key
+
+  - name: fct_household_period_state
+    description: "Dense household-period state table containing 28-day lifecycle state machine assignments."
+    columns:
+      - name: household_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_household')
+              field: household_key
+      - name: period_id
+        tests:
+          - not_null
+      - name: state
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['New', 'Champion', 'Regular', 'At-Risk', 'Dormant', 'Lapsed']
