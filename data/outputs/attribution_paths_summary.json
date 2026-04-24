@@ -1,0 +1,38 @@
+{
+  "channels": [
+    "TYPEA",
+    "TYPEB",
+    "TYPEC"
+  ],
+  "total_journeys_evaluated": 1584,
+  "primary_conversions_count": 647,
+  "sensitivity_conversions_count": 434,
+  "models": {
+    "markov_removal_effects": {
+      "TYPEA": 0.4333,
+      "TYPEB": 0.4112,
+      "TYPEC": 0.1555
+    },
+    "first_touch": {
+      "TYPEA": 0.66,
+      "TYPEB": 0.3199,
+      "TYPEC": 0.0201
+    },
+    "last_touch": {
+      "TYPEA": 0.3354,
+      "TYPEB": 0.5889,
+      "TYPEC": 0.0757
+    },
+    "linear": {
+      "TYPEA": 0.556,
+      "TYPEB": 0.3716,
+      "TYPEC": 0.0724
+    },
+    "sensitivity_coupon_redempt": {
+      "TYPEA": 0.431,
+      "TYPEB": 0.414,
+      "TYPEC": 0.155
+    }
+  },
+  "caveat": "Targeting exposures reflect distributed mailers, not confirmed physical opening; attribution represents descriptive budget allocation rather than counterfactual uplift."
+}
