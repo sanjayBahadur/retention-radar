@@ -1,0 +1,20 @@
+{
+  "experiment_name": "Retention Radar Top-30% Uplift Policy vs BAU",
+  "primary_metric": "incremental_spend_per_day",
+  "statistical_test": "Two-sample independent t-test (two-sided)",
+  "significance_level_alpha": 0.05,
+  "statistical_power": 0.8,
+  "baseline_standard_deviation": 1.3245,
+  "minimum_detectable_effect_spend_day": 0.7244,
+  "cohens_d": 0.5469,
+  "required_sample_size_per_arm": 54,
+  "total_sample_size": 108,
+  "available_active_households": 2400,
+  "recommended_duration_weeks": 8,
+  "sampling_ratio": "1:1 (50% treatment policy / 50% business-as-usual)",
+  "causal_assumptions": [
+    "Unconfoundedness (Conditional Independence): Given pre-window covariates, treatment assignment is independent of potential outcomes.",
+    "Stable Unit Treatment Value Assumption (SUTVA): No interference between households; grocery consumption in one household does not affect neighbors.",
+    "Positivity (Common Support): All eligible households have a strictly positive probability of receiving the retention offer (0.05 <= e(X) <= 0.95)."
+  ]
+}
