@@ -1,0 +1,134 @@
+{
+  "project": "Retention Radar: Customer Retention & Lifecycle Intelligence",
+  "author": "Sanjay Bahadur",
+  "last_updated": "2026-06-07",
+  "markov": {
+    "expected_days_to_lapse": {
+      "New": {
+        "mean_days": 1887.5,
+        "ci_lower_95": 1732.4,
+        "ci_upper_95": 2072.8
+      },
+      "Champion": {
+        "mean_days": 2104.8,
+        "ci_lower_95": 1949.6,
+        "ci_upper_95": 2288.1
+      },
+      "Regular": {
+        "mean_days": 1904.8,
+        "ci_lower_95": 1747.7,
+        "ci_upper_95": 2088.8
+      },
+      "At-Risk": {
+        "mean_days": 1617.1,
+        "ci_lower_95": 1468.5,
+        "ci_upper_95": 1795.1
+      },
+      "Dormant": {
+        "mean_days": 1208.3,
+        "ci_lower_95": 1076.9,
+        "ci_upper_95": 1367.2
+      }
+    },
+    "markov_reward_clv": {
+      "New": 1777.49,
+      "Champion": 2406.85,
+      "Regular": 1784.72,
+      "At-Risk": 1455.93,
+      "Dormant": 1077.89,
+      "Lapsed": 0.0
+    }
+  },
+  "attribution": {
+    "removal_effect_shares": {
+      "TYPEA": 0.4333,
+      "TYPEB": 0.4112,
+      "TYPEC": 0.1555
+    },
+    "top_contributor": "TYPEA"
+  },
+  "clv": {
+    "selected_method": "LightGBM Tweedie Regression",
+    "holdout_spearman_rank_corr": 0.9162,
+    "holdout_mae_dollars": 228.71,
+    "holdout_rmse_dollars": 349.64,
+    "mean_26w_clv_margin_dollars": 244.57
+  },
+  "churn": {
+    "best_model": "LightGBM (Optuna Tuned + Isotonic Calibration)",
+    "test_pr_auc": 0.337,
+    "test_pr_auc_ci_95": [
+      0.2997,
+      0.3802
+    ],
+    "test_roc_auc": 0.8769,
+    "test_brier_score": 0.058,
+    "expected_calibration_error_ece": 0.0091,
+    "top_10pct_lift": 4.638,
+    "top_10pct_capture_rate": 0.4635,
+    "top_20pct_capture_rate": 0.7388,
+    "optimal_targeting_threshold_p": 0.08,
+    "fairness_ablation_pr_auc_without_demographics": 0.3627
+  },
+  "financial_impact": {
+    "scale_households": 100000,
+    "base_churn_rate": 0.0758,
+    "expected_churners": 7580,
+    "top_20pct_contacted_households": 20000,
+    "contact_cost_per_household_dollars": 2.0,
+    "total_campaign_cost_dollars": 40000.0,
+    "top_20pct_churn_capture_rate": 0.7388,
+    "captured_churners": 5600.1,
+    "intervention_save_rate": 0.1,
+    "saved_households": 560.0,
+    "mean_26w_clv_margin_dollars": 244.57,
+    "gross_margin_retained_dollars": 136961.74,
+    "net_margin_per_26w_cycle_dollars": 96961.74,
+    "annualized_net_margin_dollars": 193923.49
+  },
+  "uplift": {
+    "hillstrom_benchmark_passed": true,
+    "x5_ground_truth_ate": 0.0377,
+    "confounding_stress_test": {
+      "naive_bias": 0.0078,
+      "ipw_bias": -0.0015,
+      "aipw_doubly_robust_bias": -0.0001
+    },
+    "dunnhumby_best_learner": "S-Learner (LightGBM)",
+    "dunnhumby_qini": 0.6706,
+    "dunnhumby_auuc": 0.982,
+    "uplift_at_30pct_spend_day": 0.4758,
+    "top_30pct_policy_roi": 3.61,
+    "top_30pct_net_profit": 20434.96,
+    "random_targeting_net_profit": 8173.3,
+    "segments": {
+      "persuadables_count": 8860,
+      "sure_things_count": 246,
+      "sleeping_dogs_count": 202,
+      "lost_causes_count": 137
+    },
+    "ab_test": {
+      "sample_size_per_arm": 231,
+      "total_sample_size": 462,
+      "duration_weeks": 8,
+      "alpha": 0.05,
+      "power": 0.8
+    }
+  },
+  "market_basket": {
+    "total_rules_lift_above_1_2": 27312,
+    "max_lift": 11.85,
+    "top_early_warning_categories": [
+      "DIAPERS & DISPOSABLES",
+      "CHICKEN/POULTRY",
+      "DOG FOODS",
+      "BEEF",
+      "CHICKEN"
+    ]
+  },
+  "monitoring": {
+    "metrics_monitored": 11,
+    "stable_metrics_count": 10,
+    "retraining_alert_flag": true
+  }
+}
