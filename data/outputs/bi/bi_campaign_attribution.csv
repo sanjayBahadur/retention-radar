@@ -1,0 +1,4 @@
+campaign_type,markov_removal_effect_share,first_touch_share,last_touch_share,linear_share,markov_redempt_sensitivity_share
+TYPEA,0.4333,0.66,0.3354,0.556,0.431
+TYPEB,0.4112,0.3199,0.5889,0.3716,0.414
+TYPEC,0.1555,0.0201,0.0757,0.0724,0.155
