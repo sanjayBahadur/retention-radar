@@ -1,6 +1,7 @@
 """Unit tests for Exploratory Data Analysis metrics and outputs."""
 
 import duckdb
+import pytest
 
 from retention_radar.config import get_project_root, load_project_config
 from retention_radar.eda.analysis import (
@@ -11,6 +12,7 @@ from retention_radar.eda.analysis import (
 )
 
 
+@pytest.mark.requires_warehouse
 def test_headline_kpis():
     """Verify headline KPIs match expected warehouse metrics."""
     root = get_project_root()
@@ -26,6 +28,7 @@ def test_headline_kpis():
     assert kpis["trips_per_hh_per_period"] > 4.0
 
 
+@pytest.mark.requires_warehouse
 def test_concentration_metrics():
     """Verify Lorenz concentration and Gini coefficient."""
     root = get_project_root()
@@ -38,6 +41,7 @@ def test_concentration_metrics():
     assert 0.45 < conc["gini_coefficient"] < 0.55
 
 
+@pytest.mark.requires_warehouse
 def test_churn_base_rate():
     """Verify binary churn rate across training cutoffs."""
     root = get_project_root()
@@ -50,6 +54,7 @@ def test_churn_base_rate():
     assert 3.0 < churn["churn_base_rate_pct"] < 6.0
 
 
+@pytest.mark.requires_warehouse
 def test_demographic_coverage():
     """Verify demographic coverage calculation."""
     root = get_project_root()

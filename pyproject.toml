@@ -72,5 +72,6 @@ python_files = ["test_*.py"]
 pythonpath = ["src"]
 markers = [
     "integration: integration tests",
+    "requires_warehouse: tests requiring local data/warehouse.duckdb",
 ]
 addopts = "-ra -q --cov=src --cov-report=term-missing"

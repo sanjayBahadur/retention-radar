@@ -1,0 +1,112 @@
+[
+  {
+    "source": "Dunnhumby The Complete Journey",
+    "table": "campaign_desc",
+    "filename": "campaign_desc.csv",
+    "sha256": "632535c6bcdd97b5681e84c2c0652ddc4eaca8a0f899a3bb37dae8dbdc089684",
+    "row_count": 30,
+    "url": "https://www.kaggle.com/datasets/frtgnn/dunnhumby-the-complete-journey",
+    "license": "DbCL-1.0 / Dunnhumby non-commercial research terms",
+    "ingested_at": "2026-11-01T23:52:04.055578+00:00"
+  },
+  {
+    "source": "Dunnhumby The Complete Journey",
+    "table": "campaign_table",
+    "filename": "campaign_table.csv",
+    "sha256": "a716f88953c9ddf8847e191d862e8d022afd19cf7419f52cbe6dde950a121f21",
+    "row_count": 7208,
+    "url": "https://www.kaggle.com/datasets/frtgnn/dunnhumby-the-complete-journey",
+    "license": "DbCL-1.0 / Dunnhumby non-commercial research terms",
+    "ingested_at": "2026-11-01T23:52:04.069748+00:00"
+  },
+  {
+    "source": "Dunnhumby The Complete Journey",
+    "table": "coupon",
+    "filename": "coupon.csv",
+    "sha256": "718f4d466df8a54bbff45f340e0b601049721b0715503394a601bac3093c727d",
+    "row_count": 124548,
+    "url": "https://www.kaggle.com/datasets/frtgnn/dunnhumby-the-complete-journey",
+    "license": "DbCL-1.0 / Dunnhumby non-commercial research terms",
+    "ingested_at": "2026-11-01T23:52:04.116376+00:00"
+  },
+  {
+    "source": "Dunnhumby The Complete Journey",
+    "table": "coupon_redempt",
+    "filename": "coupon_redempt.csv",
+    "sha256": "70a98f3bfb28be0dd850f19c8d806d2a23e44014546651367b21538db6fba1f8",
+    "row_count": 2318,
+    "url": "https://www.kaggle.com/datasets/frtgnn/dunnhumby-the-complete-journey",
+    "license": "DbCL-1.0 / Dunnhumby non-commercial research terms",
+    "ingested_at": "2026-11-01T23:52:04.128686+00:00"
+  },
+  {
+    "source": "Dunnhumby The Complete Journey",
+    "table": "hh_demographic",
+    "filename": "hh_demographic.csv",
+    "sha256": "aeb10246d0c4f3d3433d1f441265b6c7e70b0926129b834a3b589517948b9f22",
+    "row_count": 801,
+    "url": "https://www.kaggle.com/datasets/frtgnn/dunnhumby-the-complete-journey",
+    "license": "DbCL-1.0 / Dunnhumby non-commercial research terms",
+    "ingested_at": "2026-11-01T23:52:04.141760+00:00"
+  },
+  {
+    "source": "Dunnhumby The Complete Journey",
+    "table": "product",
+    "filename": "product.csv",
+    "sha256": "7ecbcec41e0f1e5a51b43a359965cc50dc5586a2b900a378b64032750fedc949",
+    "row_count": 92353,
+    "url": "https://www.kaggle.com/datasets/frtgnn/dunnhumby-the-complete-journey",
+    "license": "DbCL-1.0 / Dunnhumby non-commercial research terms",
+    "ingested_at": "2026-11-01T23:52:04.268951+00:00"
+  },
+  {
+    "source": "Dunnhumby The Complete Journey",
+    "table": "transaction_data",
+    "filename": "transaction_data.csv",
+    "sha256": "3a685c0729cef664d634486189f774518b84f53cde7cbf701a5963238692b476",
+    "row_count": 2595732,
+    "url": "https://www.kaggle.com/datasets/frtgnn/dunnhumby-the-complete-journey",
+    "license": "DbCL-1.0 / Dunnhumby non-commercial research terms",
+    "ingested_at": "2026-11-01T23:52:04.838235+00:00"
+  },
+  {
+    "source": "Dunnhumby The Complete Journey",
+    "table": "causal_data",
+    "filename": "causal_data.csv",
+    "sha256": "60ed7021fefc209c0caf36fcf95d1e93693775acfdac01fc9ee38273da88937a",
+    "row_count": 36786524,
+    "url": "https://www.kaggle.com/datasets/frtgnn/dunnhumby-the-complete-journey",
+    "license": "DbCL-1.0 / Dunnhumby non-commercial research terms",
+    "ingested_at": "2026-11-01T23:52:07.647081+00:00"
+  },
+  {
+    "source": "Hillstrom MineThatData",
+    "table": "customers",
+    "filename": "hillstrom.csv",
+    "sha256": "0e5893329d8b93cefecc571777672028290ab69865718020c78c7284f291aece",
+    "row_count": 64000,
+    "url": "http://www.minethatdata.com/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv",
+    "license": "Public challenge dataset",
+    "ingested_at": "2026-11-01T23:52:07.943620+00:00"
+  },
+  {
+    "source": "X5 RetailHero",
+    "table": "clients",
+    "filename": "clients.csv.gz",
+    "sha256": "bfca1719b862735ae9816ed9bbba6924931c6a4dff761c481efe9addff458429",
+    "row_count": 400162,
+    "url": "https://sklift.s3.eu-west-2.amazonaws.com/clients.csv.gz",
+    "license": "X5 RetailHero Competition Terms",
+    "ingested_at": "2026-11-01T23:52:08.440807+00:00"
+  },
+  {
+    "source": "X5 RetailHero",
+    "table": "uplift_train",
+    "filename": "uplift_train.csv.gz",
+    "sha256": "0a218e864a1ec1dfe26e980a082b81d5f46d199c4a6ae32abbaa95265af1c2c7",
+    "row_count": 200039,
+    "url": "https://sklift.s3.eu-west-2.amazonaws.com/uplift_train.csv.gz",
+    "license": "X5 RetailHero Competition Terms",
+    "ingested_at": "2026-11-01T23:52:08.567283+00:00"
+  }
+]

@@ -3,6 +3,7 @@
 import json
 
 import duckdb
+import pytest
 
 from retention_radar.config import get_project_root, load_project_config
 
@@ -29,6 +30,7 @@ def test_manifest_exists_and_valid():
         assert "license" in entry
 
 
+@pytest.mark.requires_warehouse
 def test_warehouse_table_counts():
     """Verify warehouse DuckDB contains expected row counts across tables."""
     root = get_project_root()
@@ -126,6 +128,7 @@ def test_ingest_raw_data_and_generate_dictionary(tmp_path):
     assert "transaction_data" in dict_path.read_text(encoding="utf-8")
 
 
+@pytest.mark.requires_warehouse
 def test_build_sample_fixture(tmp_path):
     """Verify build_sample_fixture produces sample CSVs under size limit."""
     from retention_radar.ingest import build_sample_fixture

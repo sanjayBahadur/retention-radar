@@ -28,6 +28,7 @@ def test_compute_smd():
     assert compute_smd(x_t, x_c) == pytest.approx(1.0, abs=0.01)
 
 
+@pytest.mark.requires_warehouse
 def test_hillstrom_benchmark_passes():
     """Verify that Hillstrom causal validation succeeds within the 95% bootstrap CI."""
     project_root = get_project_root()

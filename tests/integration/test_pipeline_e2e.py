@@ -19,6 +19,7 @@ from retention_radar.uplift.x5 import main as uplift_x5_main
 
 
 @pytest.mark.integration
+@pytest.mark.requires_warehouse
 def test_pipeline_e2e_components(tmp_path, monkeypatch):
     """Verify end-to-end pipeline components execute cleanly on warehouse database."""
     import shutil

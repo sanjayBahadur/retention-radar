@@ -1,6 +1,7 @@
 """Unit tests for market basket analysis and early-warning category signals."""
 
 import duckdb
+import pytest
 
 from retention_radar.basket.early_warning import compute_early_warning_categories
 from retention_radar.basket.rules import mine_association_rules
@@ -38,6 +39,7 @@ def test_mine_association_rules_empty():
     assert rules.empty
 
 
+@pytest.mark.requires_warehouse
 def test_early_warning_categories():
     """Verify early-warning category analysis produces valid ranked outputs on warehouse."""
     project_root = get_project_root()

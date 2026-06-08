@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from retention_radar.clv.btyd import (
     fit_bgnbd_mle,
@@ -77,6 +78,7 @@ def test_gamma_gamma_fitting_and_prediction():
     assert (pred_m > 0).all()
 
 
+@pytest.mark.requires_warehouse
 def test_extract_rfm_split():
     """Verify extract_rfm_split pulls valid calibration and holdout data."""
     root = get_project_root()

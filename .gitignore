@@ -9,8 +9,9 @@ __pycache__/
 htmlcov/
 .ipynb_checkpoints/
 
-# Data and secrets — never commit raw data or DuckDB warehouse files
-data/raw/
+# Data and secrets — never commit raw CSV data or DuckDB warehouse files
+data/raw/*
+!data/raw/MANIFEST.json
 *.duckdb
 *.duckdb.wal
 .env

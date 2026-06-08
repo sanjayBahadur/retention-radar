@@ -2,10 +2,12 @@
 
 import duckdb
 import pandas as pd
+import pytest
 
 from retention_radar.config import get_project_root, load_project_config
 
 
+@pytest.mark.requires_warehouse
 def test_marts_row_counts_and_keys():
     """Verify mart tables have expected dimensions and unique primary keys."""
     root = get_project_root()

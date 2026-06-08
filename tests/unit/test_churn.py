@@ -109,6 +109,7 @@ def test_profit_curves_structure():
     assert set(curves["save_rate"].unique()) == {0.10, 0.20}
 
 
+@pytest.mark.requires_warehouse
 def test_feature_leakage_invariance():
     """Strict leakage test: modifying or adding transactions after cutoff does not change features at cutoff."""
     project_root = get_project_root()
@@ -179,6 +180,7 @@ def test_bootstrap_metric_cis_clustered():
     assert cis["pr_auc_ci"][0] <= cis["pr_auc_ci"][1]
 
 
+@pytest.mark.requires_warehouse
 def test_build_rolling_origin_dataset():
     """Verify rolling-origin dataset splitting and feature assembly."""
     from retention_radar.features.build_features import build_rolling_origin_dataset
@@ -198,6 +200,7 @@ def test_build_rolling_origin_dataset():
     assert len(splits["train"]) > 0
 
 
+@pytest.mark.requires_warehouse
 def test_train_churn_models_execution():
     """Verify end-to-end model training, baselines, and evaluation table."""
     from retention_radar.churn.train import train_and_evaluate_all_models
@@ -226,6 +229,7 @@ def test_train_churn_models_execution():
     assert "Markov Baseline" in comp_df["model"].values
 
 
+@pytest.mark.requires_warehouse
 def test_extract_features_with_markov_matrix():
     """Verify feature extraction with custom Markov transition matrix."""
     root = get_project_root()
