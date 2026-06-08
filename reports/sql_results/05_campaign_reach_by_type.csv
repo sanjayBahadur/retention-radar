@@ -1,0 +1,4 @@
+campaign_type,distinct_campaigns,targeted_households,total_targeting_instances,converting_households,household_conversion_rate_pct,conversion_baskets,attributed_sales,total_coupon_cost
+TYPEA,5,1513,3979,833,55.06,2701,22161.38,5907.73
+TYPEB,19,1023,2655,440,43.01,923,5320.46,1272.87
+TYPEC,6,397,574,164,41.31,246,1878.52,446.5

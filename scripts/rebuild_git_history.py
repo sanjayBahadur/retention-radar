@@ -10,12 +10,23 @@ COMMITS = [
     (
         "build: initial repository layout and project configurations",
         "2026-04-03 09:24:18 -0500",
-        [".gitignore", "LICENSE", "pyproject.toml", "Makefile", ".pre-commit-config.yaml", "configs/"],
+        [
+            ".gitignore",
+            "LICENSE",
+            "pyproject.toml",
+            "Makefile",
+            ".pre-commit-config.yaml",
+            "configs/",
+        ],
     ),
     (
         "feat(config): configuration loader and directory paths schema",
         "2026-04-03 14:18:42 -0500",
-        ["src/retention_radar/__init__.py", "src/retention_radar/config.py", "tests/unit/test_config.py"],
+        [
+            "src/retention_radar/__init__.py",
+            "src/retention_radar/config.py",
+            "tests/unit/test_config.py",
+        ],
     ),
     (
         "test(fixtures): synthetic test fixtures for CI and offline validation",
@@ -80,12 +91,19 @@ COMMITS = [
     (
         "feat(markov): discounted reward CLV valuations and transition metrics",
         "2026-04-21 11:15:33 -0500",
-        ["data/outputs/markov_*.parquet", "data/outputs/markov_metrics.json", "data/outputs/state_distribution.parquet"],
+        [
+            "data/outputs/markov_*.parquet",
+            "data/outputs/markov_metrics.json",
+            "data/outputs/state_distribution.parquet",
+        ],
     ),
     (
         "feat(attribution): heuristic campaign attribution baselines",
         "2026-04-21 16:50:09 -0500",
-        ["src/retention_radar/attribution/__init__.py", "src/retention_radar/attribution/heuristics.py"],
+        [
+            "src/retention_radar/attribution/__init__.py",
+            "src/retention_radar/attribution/heuristics.py",
+        ],
     ),
     (
         "feat(attribution): Markov removal-effect graph attribution algorithm",
@@ -145,7 +163,12 @@ COMMITS = [
     (
         "feat(churn): expected value profit optimization and scored customer roster",
         "2026-05-08 16:30:14 -0500",
-        ["src/retention_radar/churn/score.py", "data/outputs/churn_scores.parquet", "data/outputs/profit_curve.parquet", "reports/churn_target_list.xlsx"],
+        [
+            "src/retention_radar/churn/score.py",
+            "data/outputs/churn_scores.parquet",
+            "data/outputs/profit_curve.parquet",
+            "reports/churn_target_list.xlsx",
+        ],
     ),
     (
         "feat(fairness): demographic fairness audit on loyalty cardholder segments",
@@ -175,27 +198,50 @@ COMMITS = [
     (
         "feat(uplift): Dunnhumby observational S-Learner with propensity trimming",
         "2026-05-16 17:05:12 -0500",
-        ["src/retention_radar/uplift/dunnhumby.py", "data/outputs/uplift_balance.parquet", "data/outputs/uplift_eval.parquet", "data/outputs/uplift_roi.parquet", "data/outputs/uplift_scores.parquet"],
+        [
+            "src/retention_radar/uplift/dunnhumby.py",
+            "data/outputs/uplift_balance.parquet",
+            "data/outputs/uplift_eval.parquet",
+            "data/outputs/uplift_roi.parquet",
+            "data/outputs/uplift_scores.parquet",
+        ],
     ),
     (
         "feat(uplift): A/B test sample size calculator and statistical power analysis",
         "2026-05-18 14:30:45 -0500",
-        ["src/retention_radar/uplift/power.py", "data/outputs/ab_test_design.json", "tests/unit/test_uplift.py"],
+        [
+            "src/retention_radar/uplift/power.py",
+            "data/outputs/ab_test_design.json",
+            "tests/unit/test_uplift.py",
+        ],
     ),
     (
         "feat(basket): FP-Growth merchandise association rule mining",
         "2026-05-20 11:00:22 -0500",
-        ["src/retention_radar/basket/__init__.py", "src/retention_radar/basket/rules.py", "data/outputs/basket_rules*.parquet", "tests/unit/test_basket.py"],
+        [
+            "src/retention_radar/basket/__init__.py",
+            "src/retention_radar/basket/rules.py",
+            "data/outputs/basket_rules*.parquet",
+            "tests/unit/test_basket.py",
+        ],
     ),
     (
         "feat(basket): early-warning precursor category departure detection",
         "2026-05-20 16:40:54 -0500",
-        ["src/retention_radar/basket/early_warning.py", "data/outputs/early_warning_categories.parquet", "reports/figures/basket_rules_network.png"],
+        [
+            "src/retention_radar/basket/early_warning.py",
+            "data/outputs/early_warning_categories.parquet",
+            "reports/figures/basket_rules_network.png",
+        ],
     ),
     (
         "feat(monitoring): Population Stability Index (PSI) drift tracking engine",
         "2026-05-23 09:25:31 -0500",
-        ["src/retention_radar/monitoring/", "data/outputs/drift_report.parquet", "tests/unit/test_monitoring.py"],
+        [
+            "src/retention_radar/monitoring/",
+            "data/outputs/drift_report.parquet",
+            "tests/unit/test_monitoring.py",
+        ],
     ),
     (
         "feat(schemas): Pandera runtime data contracts for Parquet marts",
@@ -210,7 +256,11 @@ COMMITS = [
     (
         "feat(reporting): project headline KPI consolidation and results.json",
         "2026-05-26 16:35:42 -0500",
-        ["src/retention_radar/reporting/__init__.py", "src/retention_radar/reporting/numbers.py", "data/outputs/results.json"],
+        [
+            "src/retention_radar/reporting/__init__.py",
+            "src/retention_radar/reporting/numbers.py",
+            "data/outputs/results.json",
+        ],
     ),
     (
         "feat(app): Streamlit multi-page executive command center core",
@@ -240,7 +290,11 @@ COMMITS = [
     (
         "docs(report): standalone interactive HTML report for GitHub Pages",
         "2026-06-04 10:20:14 -0500",
-        ["src/retention_radar/reporting/generate_html_report.py", "docs/index.html", "reports/interactive_report.html"],
+        [
+            "src/retention_radar/reporting/generate_html_report.py",
+            "docs/index.html",
+            "reports/interactive_report.html",
+        ],
     ),
     (
         "docs(walkthrough): executive walkthrough Jupyter notebook",
@@ -303,7 +357,9 @@ def main() -> None:
     run_cmd(["git", "init", "-b", "main"])
     run_cmd(["git", "config", "user.name", "sanjayBahadur"])
     run_cmd(["git", "config", "user.email", "mallasanjay2099@gmail.com"])
-    run_cmd(["git", "remote", "add", "origin", "https://github.com/sanjayBahadur/retention-radar.git"])
+    run_cmd(
+        ["git", "remote", "add", "origin", "https://github.com/sanjayBahadur/retention-radar.git"]
+    )
 
     env_base = os.environ.copy()
     env_base["GIT_AUTHOR_NAME"] = "sanjayBahadur"
@@ -328,8 +384,6 @@ def main() -> None:
         env["GIT_AUTHOR_DATE"] = date_str
         env["GIT_COMMITTER_DATE"] = date_str
 
-        # Check if there is anything to commit
-        status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
         # Check if staged
         diff_cached = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
         if diff_cached.returncode != 0:

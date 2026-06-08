@@ -19,8 +19,53 @@ from retention_radar.uplift.x5 import main as uplift_x5_main
 
 
 @pytest.mark.integration
-def test_pipeline_e2e_components():
+def test_pipeline_e2e_components(tmp_path, monkeypatch):
     """Verify end-to-end pipeline components execute cleanly on warehouse database."""
+    import shutil
+
+    from retention_radar.config import get_project_root, load_project_config
+
+    root = get_project_root()
+    real_cfg = load_project_config()
+
+    # Create temporary outputs and reports directories pre-seeded with current outputs
+    tmp_outputs = tmp_path / "outputs"
+    shutil.copytree(root / real_cfg.paths.data_outputs, tmp_outputs)
+    tmp_reports = tmp_path / "reports"
+    tmp_reports.mkdir()
+    tmp_figures = tmp_reports / "figures"
+    shutil.copytree(root / real_cfg.paths.figures_dir, tmp_figures)
+
+    def mock_load_project_config(*args, **kwargs):
+        cfg = real_cfg.model_copy(deep=True)
+        cfg.paths.data_outputs = tmp_outputs
+        cfg.paths.reports_dir = tmp_reports
+        cfg.paths.figures_dir = tmp_figures
+        return cfg
+
+    # Patch load_project_config across all modules
+    monkeypatch.setattr("retention_radar.config.load_project_config", mock_load_project_config)
+    for mod in [
+        "retention_radar.eda.analysis",
+        "retention_radar.markov.chain",
+        "retention_radar.attribution.markov_attribution",
+        "retention_radar.clv.compare",
+        "retention_radar.churn.fairness",
+        "retention_radar.churn.score",
+        "retention_radar.uplift.hillstrom",
+        "retention_radar.uplift.x5",
+        "retention_radar.uplift.dunnhumby",
+        "retention_radar.uplift.power",
+        "retention_radar.basket.rules",
+        "retention_radar.basket.early_warning",
+        "retention_radar.monitoring.drift",
+        "retention_radar.schemas",
+    ]:
+        try:
+            monkeypatch.setattr(f"{mod}.load_project_config", mock_load_project_config)
+        except AttributeError:
+            pass
+
     # 1. EDA
     eda_main()
 
