@@ -1,0 +1,40 @@
+{
+  "horizon_weeks": 26,
+  "history_days": 182,
+  "train_feature_cutoff_day": 336,
+  "train_outcome_end_day": 518,
+  "test_feature_cutoff_day": 518,
+  "test_outcome_end_day": 700,
+  "score_cutoff_day": 700,
+  "evaluation_households": 2498,
+  "error_unit": "sales dollars over 26 weeks",
+  "frequency_monetary_correlation": 0.0039,
+  "correlation_p_value": 0.8522542845063761,
+  "chosen_method": "Recent 26-week spend",
+  "selection_metric": "lowest test MAE (exploratory selection)",
+  "chosen_method_spearman": 0.8179,
+  "comparison_table": [
+    {
+      "method": "Recent 26-week spend",
+      "spearman_rank_corr": 0.8179,
+      "mae_dollars": 339.2,
+      "rmse_dollars": 529.1
+    },
+    {
+      "method": "BG/NBD + Gamma-Gamma",
+      "spearman_rank_corr": 0.8086,
+      "mae_dollars": 351.74,
+      "rmse_dollars": 544.92
+    },
+    {
+      "method": "LightGBM (Tweedie)",
+      "spearman_rank_corr": 0.8112,
+      "mae_dollars": 355.99,
+      "rmse_dollars": 549.55
+    }
+  ],
+  "gross_margin_assumption": 0.25,
+  "annual_discount_rate_assumption": 0.1,
+  "mean_clv_26w_dollars": 223.31,
+  "median_clv_26w_dollars": 142.14
+}

@@ -1,8 +1,8 @@
-"""Holdout validation and comparison of CLV estimation models."""
+"""Compare 26-week spending forecasts using non-overlapping future windows."""
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import duckdb
 import numpy as np
@@ -19,65 +19,109 @@ from retention_radar.clv.btyd import (
 )
 from retention_radar.config import get_project_root, load_project_config
 
+HORIZON_DAYS = 182  # 26 weeks, also used as the feature lookback window.
+TRAIN_CUTOFF_DAY = 336
+TEST_CUTOFF_DAY = TRAIN_CUTOFF_DAY + HORIZON_DAYS
+SCORE_CUTOFF_DAY = TEST_CUTOFF_DAY + HORIZON_DAYS
+FEATURES = [
+    "frequency",
+    "recency_weeks",
+    "T_weeks",
+    "cal_spend",
+    "monetary_value",
+    "cal_trips",
+    "days_since_last_purchase",
+    "tenure_weeks",
+]
+
 
 def extract_rfm_split(
     db_path: Path,
-    cal_end_day: int = 532,
-    holdout_end_day: int = 700,
-) -> Tuple[pd.DataFrame, float, float]:
-    """Extract RFM calibration features and actual holdout spend from warehouse."""
-    con = duckdb.connect(str(db_path), read_only=True)
-    df = con.execute(f"""
-        WITH cal AS (
-            SELECT
-                household_key,
-                COUNT(DISTINCT day) - 1 AS frequency,
-                MAX(day) - MIN(day) AS recency_days,
-                {cal_end_day} - MIN(day) AS T_days,
-                ROUND(SUM(sales_value), 2) AS cal_spend,
-                ROUND(AVG(sales_value), 2) AS monetary_value,
-                COUNT(DISTINCT basket_id) AS cal_trips
-            FROM raw.transaction_data
-            WHERE day <= {cal_end_day}
-            GROUP BY household_key
-        ),
-        hold AS (
-            SELECT
-                household_key,
-                ROUND(SUM(sales_value), 2) AS actual_holdout_spend,
-                COUNT(DISTINCT basket_id) AS actual_holdout_trips
-            FROM raw.transaction_data
-            WHERE day > {cal_end_day} AND day <= {holdout_end_day}
-            GROUP BY household_key
-        ),
-        state_76 AS (
-            SELECT
-                household_key,
-                state AS state_at_week_76
-            FROM marts.fct_household_period_state
-            WHERE period_id = 19  -- period 19 ends at day 532 (week 76)
-        )
-        SELECT
-            c.*,
-            s.state_at_week_76,
-            COALESCE(h.actual_holdout_spend, 0.0) AS actual_holdout_spend,
-            COALESCE(h.actual_holdout_trips, 0) AS actual_holdout_trips
-        FROM cal c
-        LEFT JOIN hold h ON c.household_key = h.household_key
-        LEFT JOIN state_76 s ON c.household_key = s.household_key;
-    """).df()
-    con.close()
+    cal_end_day: int = TEST_CUTOFF_DAY,
+    holdout_end_day: int = SCORE_CUTOFF_DAY,
+) -> tuple[pd.DataFrame, float, float]:
+    """Build past-only features and separate future labels, one row per household.
 
-    df["recency_weeks"] = df["recency_days"] / 7.0
-    df["T_weeks"] = df["T_days"] / 7.0
+    A purchase occasion is a shopping day, after summing all item lines and
+    baskets that day. Gamma-Gamma monetary value averages repeat occasions,
+    excluding the first purchase in the lookback window.
+    """
+    if holdout_end_day < cal_end_day:
+        raise ValueError("The outcome window must end on or after the feature cutoff.")
+    history_start = cal_end_day - HORIZON_DAYS
+    with duckdb.connect(str(db_path), read_only=True) as con:
+        df = con.execute(
+            """
+            WITH days AS (
+                SELECT household_key, day, SUM(sales_value) AS day_spend,
+                       COUNT(DISTINCT basket_id) AS trips
+                FROM raw.transaction_data
+                WHERE day <= ?
+                GROUP BY household_key, day
+            ), history AS (
+                SELECT household_key, MIN(day) AS first_day, MAX(day) AS last_day
+                FROM days WHERE day <= ? GROUP BY household_key
+            ), occasions AS (
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY household_key ORDER BY day) AS visit
+                FROM days WHERE day > ? AND day <= ? AND day_spend > 0
+            ), cal AS (
+                SELECT household_key, COUNT(*) - 1 AS frequency,
+                       (MAX(day) - MIN(day)) / 7.0 AS recency_weeks,
+                       (? - MIN(day)) / 7.0 AS T_weeks,
+                       SUM(day_spend) AS cal_spend,
+                       COALESCE(AVG(CASE WHEN visit > 1 THEN day_spend END), 0) AS monetary_value,
+                       SUM(trips) AS cal_trips
+                FROM occasions GROUP BY household_key
+            ), hold AS (
+                SELECT household_key, GREATEST(SUM(day_spend), 0) AS actual_holdout_spend,
+                       SUM(trips) AS actual_holdout_trips
+                FROM days WHERE day > ? AND day <= ? GROUP BY household_key
+            )
+            SELECT h.household_key, COALESCE(c.frequency, 0) AS frequency,
+                   COALESCE(c.recency_weeks, 0) AS recency_weeks,
+                   COALESCE(c.T_weeks, 26) AS T_weeks,
+                   COALESCE(c.cal_spend, 0) AS cal_spend,
+                   COALESCE(c.monetary_value, 0) AS monetary_value,
+                   COALESCE(c.cal_trips, 0) AS cal_trips,
+                   ? - h.last_day AS days_since_last_purchase,
+                   (? - h.first_day) / 7.0 AS tenure_weeks,
+                   COALESCE(o.actual_holdout_spend, 0) AS actual_holdout_spend,
+                   COALESCE(o.actual_holdout_trips, 0) AS actual_holdout_trips
+            FROM history h LEFT JOIN cal c USING (household_key)
+            LEFT JOIN hold o USING (household_key)
+            ORDER BY h.household_key
+            """,
+            [
+                holdout_end_day,
+                cal_end_day,
+                history_start,
+                cal_end_day,
+                cal_end_day,
+                cal_end_day,
+                holdout_end_day,
+                cal_end_day,
+                cal_end_day,
+            ],
+        ).df()
+    repeat = df[(df["frequency"] > 0) & (df["monetary_value"] > 0)]
+    if (
+        len(repeat) > 1
+        and repeat["frequency"].nunique() > 1
+        and repeat["monetary_value"].nunique() > 1
+    ):
+        corr, p_value = stats.pearsonr(repeat["frequency"], repeat["monetary_value"])
+        return df, float(corr), float(p_value)
+    return df, 0.0, 1.0
 
-    # Pearson correlation on repeat shoppers
-    repeat_mask = df["frequency"] > 0
-    corr, p_val = stats.pearsonr(
-        df.loc[repeat_mask, "frequency"], df.loc[repeat_mask, "monetary_value"]
-    )
 
-    return df, float(corr), float(p_val)
+def forecast_metrics(actual: np.ndarray, predicted: np.ndarray) -> dict[str, float]:
+    """Evaluate sales-dollar forecasts, before margin and discount assumptions."""
+    rank = float(stats.spearmanr(predicted, actual).statistic)
+    return {
+        "spearman_rank_corr": round(rank, 4) if np.isfinite(rank) else 0.0,
+        "mae_dollars": round(float(np.mean(np.abs(predicted - actual))), 2),
+        "rmse_dollars": round(float(np.sqrt(np.mean((predicted - actual) ** 2))), 2),
+    }
 
 
 def run_clv_comparison_pipeline(
@@ -86,161 +130,128 @@ def run_clv_comparison_pipeline(
     gross_margin: float = 0.25,
     annual_discount_rate: float = 0.10,
     seed: int = 42,
-) -> Dict[str, Any]:
-    """Fit all three CLV methods on calibration window, validate on holdout, and score households."""
+) -> dict[str, Any]:
+    """Train on days 337–518; evaluate on untouched days 519–700.
+
+    The same households may appear at both origins. This evaluates forecasting
+    future spending for known customers, not generalization to unseen people.
+    Model selection uses test MAE; its result is exploratory, without a second
+    untouched selection holdout.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
-    df, freq_mon_corr, corr_pval = extract_rfm_split(db_path, cal_end_day=532, holdout_end_day=700)
-
-    # 1. Method A: BG/NBD + Gamma-Gamma
-    bgnbd_params = fit_bgnbd_mle(
-        df["frequency"].values,
-        df["recency_weeks"].values,
-        df["T_weeks"].values,
+    train, _, _ = extract_rfm_split(db_path, TRAIN_CUTOFF_DAY, TEST_CUTOFF_DAY)
+    test, corr, p_value = extract_rfm_split(db_path, TEST_CUTOFF_DAY, SCORE_CUTOFF_DAY)
+    model = LGBMRegressor(
+        objective="tweedie",
+        random_state=seed,
+        verbosity=-1,
+        n_estimators=100,
+        n_jobs=2,
     )
-    gg_params = fit_gamma_gamma(
-        df["frequency"].values,
-        df["monetary_value"].values,
-    )
+    model.fit(train[FEATURES], train["actual_holdout_spend"])
 
-    pred_tx_bgnbd = predict_bgnbd_purchases(
-        df["frequency"].values,
-        df["recency_weeks"].values,
-        df["T_weeks"].values,
-        bgnbd_params,
-        future_t=24.0,  # 24 weeks holdout (days 533 to 700 = 168 days)
-    )
-    pred_mon_bgnbd = predict_monetary_value(
-        df["frequency"].values,
-        df["monetary_value"].values,
-        gg_params,
-    )
-    df["pred_spend_bgnbd"] = pred_tx_bgnbd * pred_mon_bgnbd
-    df["p_alive_bgnbd"] = predict_p_alive(
-        df["frequency"].values,
-        df["recency_weeks"].values,
-        df["T_weeks"].values,
-        bgnbd_params,
-    )
+    # Fit the probabilistic baseline on purchase history available at this origin.
+    bgnbd = fit_bgnbd_mle(test["frequency"], test["recency_weeks"], test["T_weeks"])
+    gamma_gamma = fit_gamma_gamma(test["frequency"].to_numpy(), test["monetary_value"].to_numpy())
 
-    # 2. Method B: Markov Reward CLV (assigned by state at week 76)
-    markov_metrics_path = output_dir / "markov_metrics.json"
-    if markov_metrics_path.exists():
-        with open(markov_metrics_path) as f:
-            mm = json.load(f)
-        state_clv_map = mm.get("markov_reward_clv", {})
-    else:
-        state_clv_map = {
-            "Champion": 2400.0,
-            "Regular": 1780.0,
-            "New": 1770.0,
-            "At-Risk": 1450.0,
-            "Dormant": 1070.0,
-            "Lapsed": 0.0,
-        }
-
-    # Scale Markov state CLV to gross spend across 24 weeks
-    df["pred_spend_markov"] = (
-        df["state_at_week_76"]
-        .map(lambda s: (state_clv_map.get(s, 1000.0) / gross_margin) * (24.0 / 52.0))
-        .fillna(500.0)
-    )
-
-    # 3. Method C: LightGBM Tweedie Regressor
-    features = ["frequency", "recency_weeks", "T_weeks", "cal_spend", "monetary_value", "cal_trips"]
-    lgbm = LGBMRegressor(objective="tweedie", random_state=seed, verbose=-1, n_estimators=100)
-    lgbm.fit(df[features], df["actual_holdout_spend"])
-    df["pred_spend_lgbm"] = lgbm.predict(df[features])
-
-    # Compute Validation Metrics
-    actual = df["actual_holdout_spend"].values
-
-    def eval_predictions(preds: np.ndarray) -> Dict[str, float]:
-        spearman = float(stats.spearmanr(preds, actual)[0])
-        mae = float(np.mean(np.abs(preds - actual)))
-        rmse = float(np.sqrt(np.mean((preds - actual) ** 2)))
+    def predictions(frame: pd.DataFrame) -> dict[str, np.ndarray]:
         return {
-            "spearman_rank_corr": round(spearman, 4),
-            "mae_dollars": round(mae, 2),
-            "rmse_dollars": round(rmse, 2),
+            "Recent 26-week spend": frame["cal_spend"].to_numpy(),
+            "BG/NBD + Gamma-Gamma": predict_bgnbd_purchases(
+                frame["frequency"],
+                frame["recency_weeks"],
+                frame["T_weeks"],
+                bgnbd,
+                future_t=26.0,
+            )
+            * predict_monetary_value(frame["frequency"], frame["monetary_value"], gamma_gamma),
+            "LightGBM (Tweedie)": np.maximum(model.predict(frame[FEATURES]), 0),
         }
 
-    comp_records = [
-        {"method": "LightGBM (Tweedie)", **eval_predictions(df["pred_spend_lgbm"].values)},
-        {"method": "BG/NBD + Gamma-Gamma", **eval_predictions(df["pred_spend_bgnbd"].values)},
-        {"method": "Markov Reward Process", **eval_predictions(df["pred_spend_markov"].values)},
-    ]
-    comp_df = pd.DataFrame(comp_records).sort_values("spearman_rank_corr", ascending=False)
-    comp_df.to_parquet(output_dir / "clv_comparison.parquet", index=False)
+    test_predictions = predictions(test)
+    comparison = (
+        pd.DataFrame(
+            [
+                {
+                    "method": name,
+                    **forecast_metrics(test["actual_holdout_spend"].to_numpy(), values),
+                }
+                for name, values in test_predictions.items()
+            ]
+        )
+        .sort_values("mae_dollars")
+        .reset_index(drop=True)
+    )
+    comparison.to_parquet(output_dir / "clv_comparison.parquet", index=False)
+    selected = str(comparison.iloc[0]["method"])
+    validation = test[["household_key", "actual_holdout_spend"]].copy()
+    for name, values in test_predictions.items():
+        validation[name] = values
+    validation.to_parquet(output_dir / "clv_validation_predictions.parquet", index=False)
 
-    # Refit chosen method (LightGBM Tweedie) on all 102 weeks for full scoring
-    con = duckdb.connect(str(db_path), read_only=True)
-    full_df = con.execute("""
-        SELECT
-            household_key,
-            COUNT(DISTINCT day) - 1 AS frequency,
-            (MAX(day) - MIN(day)) / 7.0 AS recency_weeks,
-            (700 - MIN(day)) / 7.0 AS T_weeks,
-            ROUND(SUM(sales_value), 2) AS cal_spend,
-            ROUND(AVG(sales_value), 2) AS monetary_value,
-            COUNT(DISTINCT basket_id) AS cal_trips
-        FROM raw.transaction_data
-        WHERE day <= 700
-        GROUP BY household_key;
-    """).df()
-    con.close()
+    discount = (1 + annual_discount_rate) ** (-0.5)
 
-    # Predict 26-week spend refit
-    full_pred_spend = lgbm.predict(full_df[features])
-    discount_factor = float((1.0 + annual_discount_rate) ** (-0.5))  # half-year discount
-    # CLV in margin dollars = predicted_spend * gross_margin * discount_factor
-    full_df["clv_26w"] = np.round(full_pred_spend * gross_margin * discount_factor, 2)
-    full_df["p_alive"] = predict_p_alive(
-        full_df["frequency"].values,
-        full_df["recency_weeks"].values,
-        full_df["T_weeks"].values,
-        bgnbd_params,
-    ).round(4)
-    full_df["method"] = "LightGBM Tweedie (Margin Discounted)"
+    def score_at(cutoff_day: int, filename: str, method: str) -> pd.DataFrame:
+        # Keep the evaluated model fixed; never fit on this origin's future labels.
+        frame, _, _ = extract_rfm_split(db_path, cutoff_day, cutoff_day)
+        scored = pd.DataFrame(
+            {
+                "household_key": frame["household_key"],
+                "method": method,
+                "clv_26w": np.round(predictions(frame)[method] * gross_margin * discount, 2),
+                "p_alive": predict_p_alive(
+                    frame["frequency"],
+                    frame["recency_weeks"],
+                    frame["T_weeks"],
+                    bgnbd,
+                ).round(4),
+                "cutoff_day": cutoff_day,
+            }
+        )
+        scored.to_parquet(output_dir / filename, index=False)
+        return scored
 
-    output_clv = full_df[["household_key", "method", "clv_26w", "p_alive"]].copy()
-    output_clv.to_parquet(output_dir / "clv.parquet", index=False)
-
+    scored = score_at(SCORE_CUTOFF_DAY, "clv.parquet", selected)
+    # Historical churn scores use a prespecified model. Choosing the winner
+    # using outcomes through day 700 would leak future model-selection evidence.
+    score_at(23 * 28, "clv_at_churn_cutoff.parquet", "LightGBM (Tweedie)")
     summary = {
-        "frequency_monetary_correlation": round(freq_mon_corr, 4),
-        "correlation_p_value": float(corr_pval),
-        "chosen_method": "LightGBM (Tweedie)",
-        "chosen_method_spearman": float(comp_df.iloc[0]["spearman_rank_corr"]),
-        "comparison_table": comp_df.to_dict("records"),
-        "mean_clv_26w_dollars": round(float(full_df["clv_26w"].mean()), 2),
-        "median_clv_26w_dollars": round(float(full_df["clv_26w"].median()), 2),
+        "horizon_weeks": 26,
+        "history_days": HORIZON_DAYS,
+        "train_feature_cutoff_day": TRAIN_CUTOFF_DAY,
+        "train_outcome_end_day": TEST_CUTOFF_DAY,
+        "test_feature_cutoff_day": TEST_CUTOFF_DAY,
+        "test_outcome_end_day": SCORE_CUTOFF_DAY,
+        "score_cutoff_day": SCORE_CUTOFF_DAY,
+        "evaluation_households": len(test),
+        "error_unit": "sales dollars over 26 weeks",
+        "frequency_monetary_correlation": round(corr, 4),
+        "correlation_p_value": p_value,
+        "chosen_method": selected,
+        "selection_metric": "lowest test MAE (exploratory selection)",
+        "chosen_method_spearman": float(comparison.iloc[0]["spearman_rank_corr"]),
+        "comparison_table": comparison.to_dict("records"),
+        "gross_margin_assumption": gross_margin,
+        "annual_discount_rate_assumption": annual_discount_rate,
+        "mean_clv_26w_dollars": round(float(scored["clv_26w"].mean()), 2),
+        "median_clv_26w_dollars": round(float(scored["clv_26w"].median()), 2),
     }
-
+    (output_dir / "clv_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     return summary
 
 
 def main() -> None:
-    """CLI entrypoint for Phase 7 CLV estimation."""
+    """Build reproducible spending forecasts and evaluation artifacts."""
     root = get_project_root()
     cfg = load_project_config()
-    db_path = root / cfg.paths.warehouse_db
-    output_dir = root / cfg.paths.data_outputs
-
     summary = run_clv_comparison_pipeline(
-        db_path=db_path,
-        output_dir=output_dir,
+        root / cfg.paths.warehouse_db,
+        root / cfg.paths.data_outputs,
         gross_margin=cfg.gross_margin,
         annual_discount_rate=cfg.annual_discount_rate,
         seed=cfg.seed,
     )
-    print("Phase 7 CLV Modeling Complete:")
-    print("  Chosen Method:", summary["chosen_method"])
-    print("  Holdout Spearman:", summary["chosen_method_spearman"])
-    print("  Mean 26-Week CLV (Margin $):", summary["mean_clv_26w_dollars"])
-    print("  Comparison:")
-    for row in summary["comparison_table"]:
-        print(
-            f"    - {row['method']}: Spearman = {row['spearman_rank_corr']}, MAE = ${row['mae_dollars']}"
-        )
+    print(json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":

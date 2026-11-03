@@ -1,65 +1,79 @@
-# Model Card: Customer Lifetime Value (CLV) Predictor
+# Customer value: a 26-week spending forecast
 
-## 1. Model Details
-- **Model Name:** Retention Radar Customer Lifetime Value Engine
-- **Model Version:** 1.0.0
-- **Model Architectures Benchmarked:**
-  1. **LightGBM Tweedie Regressor:** Gradient boosted decision trees optimizing a compound Poisson-Gamma deviance loss ($1 < p < 2$).
-  2. **BG/NBD + Gamma-Gamma:** Classical probabilistic Buy-Till-You-Die model (Beta-Geometric / Negative Binomial Distribution for transaction frequency, Gamma-Gamma for basket monetary spend).
-  3. **Markov Reward Process:** Fundamental matrix reward formulation ($V = (I - \gamma Q)^{-1} r$).
-- **Selected Champion Model:** LightGBM Tweedie Regressor
-- **Prediction Target:** 26-week forward household gross margin contribution ($) evaluated strictly out-of-time on holdout periods 20–25 (weeks 77–102).
-- **Developed by:** Sanjay Bahadur (`mallasanjay2099@gmail.com`)
-- **Release Date:** May 2026
-- **License:** MIT
+This model estimates how much a household may spend over the next 26 weeks.
+The dashboard converts that forecast into estimated margin using explicit
+business assumptions. These are forecasts, not money earned by a campaign.
 
----
+## What was compared?
 
-## 2. Intended Use
-- **Primary Use Case:** Predict forward 6-month gross margin dollars for each household to rank customer value, calculate individual expected value saved ($EV_i = p_i \times \text{save\_rate} \times \text{CLV}_i - \text{offer\_cost}$), and allocate retention campaign budgets efficiently.
-- **Out-of-Scope Use Cases:** Real-time credit limits, dynamic personalized grocery pricing, or exclusionary marketing practices.
+- **Recent spending:** assume the next 26 weeks resemble the previous 26 weeks.
+- **BG/NBD + Gamma-Gamma:** estimate shopping frequency and spending per visit.
+- **LightGBM:** learn spending patterns from historical household features.
 
----
+The recent-spending baseline had the lowest mean absolute error in this test,
+so it supplies the final day-700 customer-value estimates. A simple baseline
+is useful when added model complexity does not improve the decision.
 
-## 3. Data & Rolling-Origin Evaluation Partitions
+The Markov lifecycle model remains a separate long-run analysis. Its
+infinite-horizon values are not compared with a 26-week spending target.
 
-- **Calibration / Training Window (Weeks 1–76 / Periods 4–19):** Historical purchase frequency, inter-purchase times, monetary value, category penetration, and discount sensitivity computed up to cutoff period 19.
-- **Holdout Evaluation Window (Weeks 77–102 / Periods 20–25):** 26 consecutive weeks of out-of-time realized household gross margin dollars.
-- **Leakage Prevention:** Features are extracted strictly on transactions occurring $\le$ day 532 (Period 19 end). No future transaction observations pollute the training feature matrix.
+## How was it evaluated?
 
----
+All models forecast **182 days (26 weeks)**. Features use the previous 182
+days, plus tenure and days since the last purchase. A purchase occasion is
+a shopping day: item lines and baskets on the same day are added together.
+Gamma-Gamma averages spending on repeat occasions, excluding the first one.
 
-## 4. Benchmark Performance & Evaluation
+| Window | Feature cutoff | Future spending label |
+|---|---:|---|
+| LightGBM training | Day 336 | Days 337–518 |
+| Evaluation | Day 518 | Days 519–700 |
+| Latest forecast | Day 700 | Next 182 days; not observed here |
 
-Evaluated on the out-of-time 26-week holdout cohort ($N = 2,500$ households, mean realized 26-week gross margin = $244.57):
+Training outcomes end before evaluation outcomes begin. The same households
+can appear in both windows: this tests future forecasts for known customers,
+not predictions for entirely new customers. Probabilistic model parameters
+are fit using purchase history available by day 518.
 
-| Model Architecture | Spearman Rank Correlation | MAE ($ Margin) | RMSE ($ Margin) | Method Strengths & Limitations |
-| :--- | :---: | :---: | :---: | :--- |
-| **LightGBM (Tweedie)** | **0.9162** | **$228.71** | **$349.64** | **Superior rank ordering and monetary precision; captures non-linear category trends and promo elasticities** |
-| Markov Reward Process | 0.6960 | $2,407.81 | $3,142.05 | Excellent long-run steady-state valuation; overestimates short-term 26-week horizon due to infinite-horizon formulation |
-| BG/NBD + Gamma-Gamma | 0.6799 | $784.89 | $1,124.30 | Strong probabilistic foundation; assumes independent frequency and monetary processes, struggling with zero-inflated periods |
+## Results
 
-### Key Performance Findings
-1. **Decisive Rank Correlation:** LightGBM Tweedie achieves an exceptional Spearman rank correlation of **0.9162**, substantially outperforming BG/NBD (0.6799) and Markov Reward (0.6960). In retention decisioning, accurate rank ordering is critical for prioritization.
-2. **Handling Zero Inflation:** The Tweedie deviance parameter ($p = 1.5$) naturally accounts for customers with zero transactions in the forward window without requiring artificial two-stage hurdle architectures.
-3. **Monetary Error:** LightGBM Tweedie achieves an out-of-time MAE of **$228.71**, providing realistic household-level dollar projections.
+Evaluation covers **2,498 households** that were already observed by day 518.
+Errors below are in **sales dollars**, before any assumed margin or discount.
 
----
+| Method | Rank correlation | Mean absolute error | Root mean squared error |
+|---|---:|---:|---:|
+| Recent 26-week spend | 0.8179 | $339.20 | $529.10 |
+| BG/NBD + Gamma-Gamma | 0.8086 | $351.74 | $544.92 |
+| LightGBM | 0.8112 | $355.99 | $549.55 |
 
-## 5. Feature Importance & Drivers of Lifetime Value
+Rank correlation measures whether households are ordered correctly by future
+spending; a high rank score does not guarantee accurate individual amounts.
+The evaluation selects the lowest-error method on one future window. This
+is an exploratory comparison, without a second untouched selection holdout
+or a claim that the small differences are statistically significant.
 
-Tree-based feature importance indicates the primary drivers of forward customer margin:
-1. `spend_3p`: Total margin spend in the trailing 12 weeks (most significant signal of ongoing household spending power).
-2. `trips_3p`: Purchase visit frequency over the trailing 12 weeks.
-3. `recency_days`: Days elapsed since the last transaction (strongest negative indicator; recency > 35 days severely depresses expected CLV).
-4. `fresh_share_3p`: Proportion of basket spend dedicated to fresh meats, produce, and dairy (high fresh share strongly correlates with long-term retention).
-5. `coupon_redempt_rate`: Moderate coupon engagement indicates price responsiveness and store loyalty without eroding baseline margins.
+## How estimates enter the dashboard
 
----
+Estimated margin = forecast sales × assumed 25% gross margin × (1.10)^−0.5.
+The 10% annual discount rate and 25% margin are configurable assumptions,
+not measured household profitability. The mean day-700 estimate is **$223.31**.
 
-## 6. Integration into Retention Operations
+The historical churn roster uses features through day 644 and a prespecified
+LightGBM model trained on outcomes ending at day 518. It does not use the
+winner selected with later day-700 outcomes. The file records its cutoff.
 
-The predicted 26-week CLV ($\text{clv\_26w}$) is directly integrated into the Retention Radar operational stack:
-- **Profit Curve Weighting:** Multiplied by calibrated churn risk ($p_i$) and expected winback rate ($\delta$) to calculate net expected value creation.
-- **Roster Prioritization:** High-CLV accounts ($\text{clv\_26w} \ge \$500$) are elevated to VIP Outreach tiers even if their baseline churn risk is moderate ($p_i \approx 0.15$), protecting the highest-margin customer relationships.
-- **Drift Monitoring:** Monitored quarterly via Population Stability Index (PSI) to detect macro-economic spending shifts or inflation-induced basket drift.
+## Limits and reproducibility
+
+The retailer's data does not reveal competitor purchases, customer profit,
+or whether outreach changes spending. BG/NBD assumes stable purchase and
+dropout behavior; Gamma-Gamma assumes spending and frequency independence.
+This implementation constrains BG/NBD a > 1 and Gamma-Gamma q > 1 for finite,
+positive expectations. Returns are netted within each shopping day; only
+positive-spend days enter the purchase-frequency features.
+
+Run `python -m retention_radar.clv.compare` to regenerate the comparison,
+per-household validation predictions, summary metadata, latest forecasts,
+and historical forecasts. Artifacts are in `data/outputs/clv*`.
+
+Formula references: Fader, Hardie & Lee (2005), [BG/NBD notes](http://brucehardie.com/notes/004/)
+and [Gamma-Gamma notes](http://www.brucehardie.com/notes/025/).
