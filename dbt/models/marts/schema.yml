@@ -28,8 +28,9 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_household')
-              field: household_key
+              arguments:
+                to: ref('dim_household')
+                field: household_key
 
   - name: fct_household_period_state
     description: "Dense household-period state table containing 28-day lifecycle state machine assignments."
@@ -38,8 +39,9 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_household')
-              field: household_key
+              arguments:
+                to: ref('dim_household')
+                field: household_key
       - name: period_id
         tests:
           - not_null
@@ -47,4 +49,5 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['New', 'Champion', 'Regular', 'At-Risk', 'Dormant', 'Lapsed']
+              arguments:
+                values: ['New', 'Champion', 'Regular', 'At-Risk', 'Dormant', 'Lapsed']

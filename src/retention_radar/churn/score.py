@@ -25,15 +25,27 @@ def compute_profit_curves(
     """Compute expected value and targeting profit curves across save rates and thresholds."""
     rows = []
     # Rank households by calibrated churn probability descending
-    df_sorted = df.sort_values("calibrated_p", ascending=False).reset_index(drop=True)
+    sort_columns = ["calibrated_p", "raw_p"] if "raw_p" in df else ["calibrated_p"]
+    df_sorted = df.sort_values(sort_columns, ascending=False, kind="stable").reset_index(drop=True)
     n = len(df_sorted)
 
     percentiles = np.linspace(0.01, 1.0, 100)
 
     for save_rate in save_rates:
+        rows.append(
+            {
+                "save_rate": save_rate,
+                "target_percentile": 0.0,
+                "households_targeted": 0,
+                "probability_threshold": 1.0,
+                "total_ev": 0.0,
+                "total_cost": 0.0,
+                "expected_roi": 0.0,
+            }
+        )
         # Individual expected value of intervention
         # EV = p * save_rate * CLV - offer_cost
-        clv_margin = np.maximum(df_sorted["clv_26w"].fillna(df_sorted["clv_26w"].median()), 10.0)
+        clv_margin = df_sorted["clv_26w"].clip(lower=0.0)
         p = df_sorted["calibrated_p"]
         indiv_ev = p * save_rate * clv_margin - offer_cost
 
@@ -179,11 +191,11 @@ def main() -> None:
     score_df["calibrated_p"] = calibrated_scores.round(4)
 
     # Risk decile (1 = top 10% highest churn probability)
-    ranks = score_df["calibrated_p"].rank(method="first", ascending=False)
+    ranks = score_df["raw_p"].rank(method="first", ascending=False)
     score_df["risk_decile"] = pd.qcut(ranks, q=10, labels=list(range(1, 11))).astype(int)
 
     # Merge CLV estimates from data/outputs/clv.parquet
-    clv_path = project_root / cfg.paths.data_outputs / "clv.parquet"
+    clv_path = project_root / cfg.paths.data_outputs / "clv_at_churn_cutoff.parquet"
     if clv_path.exists():
         clv_df = pd.read_parquet(clv_path)
         score_df = score_df.merge(
@@ -192,9 +204,11 @@ def main() -> None:
             how="left",
         )
     else:
-        score_df["clv_26w"] = 250.0
+        raise FileNotFoundError("Run the CLV module before scoring churn.")
 
-    score_df["clv_26w"] = score_df["clv_26w"].fillna(score_df["clv_26w"].median()).round(2)
+    if score_df["clv_26w"].isna().any():
+        raise ValueError("Missing point-in-time CLV for scored households.")
+    score_df["clv_26w"] = score_df["clv_26w"].round(2)
 
     # Compute EV at default assumption: save_rate = 0.10, offer_cost = 2.00
     offer_cost = cfg.offer_cost if hasattr(cfg, "offer_cost") else 2.00
@@ -203,7 +217,7 @@ def main() -> None:
         score_df["calibrated_p"] * default_save_rate * score_df["clv_26w"] - offer_cost
     ).round(2)
     score_df["target_action"] = np.where(
-        score_df["targeting_ev"] > 0, "High-Priority Offer", "Standard Marketing"
+        score_df["targeting_ev"] > 0, "Review for experiment", "No offer under assumptions"
     )
 
     # Compute SHAP values and assign human readable reason codes
@@ -220,6 +234,7 @@ def main() -> None:
         "cutoff_period",
         "current_state",
         "calibrated_p",
+        "raw_p",
         "risk_decile",
         "clv_26w",
         "targeting_ev",

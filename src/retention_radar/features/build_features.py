@@ -195,7 +195,8 @@ def extract_features_at_cutoff(
         LEFT JOIN recency_calc rc ON e.household_key = rc.household_key
         LEFT JOIN campaign_metrics c ON e.household_key = c.household_key
         LEFT JOIN marts.dim_household d ON e.household_key = d.household_key
-        LEFT JOIN future_trips f ON e.household_key = f.household_key;
+        LEFT JOIN future_trips f ON e.household_key = f.household_key
+        ORDER BY e.household_key;
     """
 
     df = con.execute(query).df()
@@ -253,7 +254,7 @@ def extract_features_at_cutoff(
 
 def build_rolling_origin_dataset(
     db_path: Path,
-    train_cutoffs: List[int] = list(range(6, 16)),
+    train_cutoffs: List[int] = list(range(6, 14)),
     val_cutoffs: List[int] = [16, 17],
     test_cutoffs: List[int] = [20, 21, 22, 23],
     markov_P: Optional[np.ndarray] = None,
@@ -287,22 +288,9 @@ def main() -> None:
     cfg = load_project_config()
     db_path = project_root / cfg.paths.warehouse_db
 
-    # Load transition matrix from outputs if present
-    trans_path = project_root / cfg.paths.data_outputs / "markov_P.parquet"
-    if not trans_path.exists():
-        trans_path = project_root / cfg.paths.data_outputs / "transition_matrix.parquet"
-    markov_P = None
-    states = None
-    if trans_path.exists():
-        t_df = pd.read_parquet(trans_path)
-        states = list(t_df.columns)
-        markov_P = t_df.values
-
-    splits = build_rolling_origin_dataset(
-        db_path=db_path,
-        markov_P=markov_P,
-        states=states,
-    )
+    # A full-history transition matrix would leak future information into early cutoffs.
+    # Use the fixed state heuristic; fit/evaluate statistical models on separate splits.
+    splits = build_rolling_origin_dataset(db_path=db_path)
 
     out_dir = project_root / cfg.paths.data_outputs
     out_dir.mkdir(parents=True, exist_ok=True)

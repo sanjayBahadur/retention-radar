@@ -73,7 +73,7 @@ def generate_synthetic_fixtures(output_dir: Path, seed: int = 42) -> None:
     trans_df = pd.DataFrame(
         {
             "household_key": rng.choice(hh_keys, size=n_trans),
-            "basket_id": rng.integers(100000, 999999, size=n_trans),
+            "basket_id": np.arange(100000, 100000 + n_trans),
             "day": days,
             "product_id": rng.choice(product_ids, size=n_trans),
             "quantity": rng.integers(1, 5, size=n_trans),

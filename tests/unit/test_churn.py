@@ -224,9 +224,9 @@ def test_train_churn_models_execution():
     )
     assert not comp_df.empty
     assert "LightGBM" in comp_df["model"].values
-    assert "Cox PH Baseline" in comp_df["model"].values
+    assert "Recency Baseline" in comp_df["model"].values
     assert "Logistic Regression" in comp_df["model"].values
-    assert "Markov Baseline" in comp_df["model"].values
+    assert "State Baseline" in comp_df["model"].values
 
 
 @pytest.mark.requires_warehouse
@@ -244,3 +244,40 @@ def test_extract_features_with_markov_matrix():
 
     assert "markov_churn_score" in df.columns
     assert not df["markov_churn_score"].isna().any()
+
+
+def test_contact_budget_is_applied_at_each_cutoff():
+    """A high-score period cannot consume another period's contact budget."""
+    labels = np.array([0] * 9 + [1] + [1, 1] + [0] * 8)
+    scores = np.r_[np.linspace(0.99, 0.80, 10), np.linspace(0.20, 0.01, 10)]
+    periods = np.repeat([20, 21], 10)
+    pooled = compute_lift_and_capture(labels, scores, percentile=0.20)
+    per_cutoff = compute_lift_and_capture(labels, scores, percentile=0.20, period_ids=periods)
+    assert pooled == (0.0, 0.0)
+    assert per_cutoff == (3.333, 0.6667)
+    # Scores may have a different scale at each origin while rankings stay fixed.
+    scores[periods == 21] += 2
+    assert compute_lift_and_capture(labels, scores, 0.20, periods) == per_cutoff
+
+
+def test_clustered_bootstrap_preserves_cutoff_contact_budgets():
+    labels = np.array([0] * 9 + [1] + [1, 1] + [0] * 8)
+    scores = np.r_[np.linspace(0.99, 0.80, 10), np.linspace(0.20, 0.01, 10)]
+    periods = np.repeat([20, 21], 10)
+    households = np.tile(np.arange(10), 2)
+    before = bootstrap_metric_cis(
+        labels,
+        scores,
+        cluster_ids=households,
+        period_ids=periods,
+        n_bootstrap=30,
+    )
+    scores[periods == 21] += 2
+    after = bootstrap_metric_cis(
+        labels,
+        scores,
+        cluster_ids=households,
+        period_ids=periods,
+        n_bootstrap=30,
+    )
+    assert before["top_10_lift_ci"] == after["top_10_lift_ci"]

@@ -177,7 +177,7 @@ uplift_roi_schema = DataFrameSchema(
 # 14. Uplift Scores Schema
 uplift_scores_schema = DataFrameSchema(
     columns={
-        "household_key": Column(pa.Int, coerce=True),
+        "household_key": Column(pa.Int, coerce=True, unique=True),
         "campaign": Column(pa.Int, coerce=True),
         "treated": Column(pa.Int, Check.isin([0, 1]), coerce=True),
         "propensity_score": Column(pa.Float, Check.in_range(0.0, 1.0)),
@@ -226,9 +226,19 @@ drift_report_schema = DataFrameSchema(
     strict=False,
 )
 
+markov_probability_schema = DataFrameSchema(
+    columns={
+        "source_state": Column(pa.String),
+        "target_state": Column(pa.String),
+        "transition_probability": Column(pa.Float, Check.in_range(0.0, 1.0)),
+    },
+    strict=False,
+)
+
 SCHEMA_REGISTRY = {
     "state_distribution.parquet": state_distribution_schema,
-    "transition_matrix.parquet": transition_matrix_schema,
+    "markov_P.parquet": markov_probability_schema,
+    "clv_at_churn_cutoff.parquet": clv_schema,
     "attribution.parquet": attribution_schema,
     "clv.parquet": clv_schema,
     "clv_comparison.parquet": clv_comparison_schema,

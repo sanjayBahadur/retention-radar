@@ -52,14 +52,15 @@ def fit_survival_models(
     # 1. Fit Kaplan-Meier by baseline state
     kmf = KaplanMeierFitter()
     curve_records = []
-    median_survival: Dict[str, float] = {}
+    median_survival: Dict[str, float | None] = {}
 
     for state in ["Champion", "Regular", "At-Risk", "Dormant"]:
         sub = df[df["baseline_state"] == state]
         if len(sub) == 0:
             continue
         kmf.fit(durations=sub["duration_periods"], event_observed=sub["event_lapsed"], label=state)
-        median_survival[state] = float(kmf.median_survival_time_)
+        median = float(kmf.median_survival_time_)
+        median_survival[state] = median if np.isfinite(median) else None
         for t, s in zip(kmf.timeline, kmf.survival_function_[state]):
             curve_records.append(
                 {
@@ -87,6 +88,7 @@ def fit_survival_models(
 
     return {
         "median_survival_periods": median_survival,
+        "concordance_scope": "Descriptive fit on observed histories; not held-out evaluation",
         "concordance_index": round(float(cph.concordance_index_), 4),
         "cph_summary": cph_summary,
     }

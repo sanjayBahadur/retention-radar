@@ -3811,7 +3811,7 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10.0" },
     { name = "nbstripout", marker = "extra == 'dev'", specifier = ">=0.7.1" },
     { name = "networkx", specifier = ">=3.2.0" },
-    { name = "numpy", specifier = ">=1.26.0" },
+    { name = "numpy", specifier = ">=2.0.0" },
     { name = "openpyxl", specifier = ">=3.1.2" },
     { name = "optuna", specifier = ">=3.6.0" },
     { name = "pandas", specifier = ">=2.2.0" },
@@ -3832,7 +3832,7 @@ requires-dist = [
     { name = "shap", specifier = ">=0.45.0" },
     { name = "six", specifier = ">=1.16.0" },
     { name = "statsmodels", specifier = ">=0.14.0" },
-    { name = "streamlit", specifier = ">=1.35.0" },
+    { name = "streamlit", specifier = ">=1.55.0" },
     { name = "ucimlrepo", specifier = ">=0.0.6" },
 ]
 provides-extras = ["dev", "polish"]

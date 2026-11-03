@@ -2,7 +2,9 @@
 
 import argparse
 import subprocess
+import sys
 import time
+from pathlib import Path
 from typing import Callable
 
 from retention_radar.config import get_project_root, load_project_config
@@ -57,12 +59,21 @@ def run_pipeline(
         def dbt_step():
             dbt_dir = project_root / "dbt"
             print("Running dbt transformations...")
-            cmd = ["dbt", "build", "--profiles-dir", str(dbt_dir)]
+            cmd = [
+                str(Path(sys.executable).parent / "dbt"),
+                "build",
+                "--profiles-dir",
+                str(dbt_dir),
+            ]
             subprocess.run(cmd, cwd=str(dbt_dir), check=True)
 
         run_step("2. dbt Modeling & Lifecycle States", dbt_step)
     else:
         print("\n[Skipping dbt transformations]")
+
+    from retention_radar.reporting.export_tables import main as tables_main
+
+    run_step("2b. Lifecycle and SQL exports", tables_main)
 
     # Step 3: EDA
     from retention_radar.eda.analysis import main as eda_main
@@ -135,6 +146,16 @@ def run_pipeline(
     from retention_radar.schemas import main as schemas_main
 
     run_step("10b. Pandera Parquet Schema Verification", schemas_main)
+
+    from retention_radar.bi.export import main as bi_main
+    from retention_radar.reporting.evaluation import main as evaluation_main
+    from retention_radar.reporting.generate_html_report import main as html_main
+    from retention_radar.reporting.numbers import main as numbers_main
+
+    run_step("11. BI exports", bi_main)
+    run_step("12. Churn error review", evaluation_main)
+    run_step("13. Artifact-derived findings", numbers_main)
+    run_step("14. Public case study", html_main)
 
     total_elapsed = time.time() - total_t0
     print("\n========================================================")

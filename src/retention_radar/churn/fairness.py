@@ -47,11 +47,17 @@ def audit_demographic_fairness(
     top_pct: float = 0.20,
 ) -> pd.DataFrame:
     """Audit recall and FPR across income and age demographic bands at a given targeting cutoff."""
-    n = len(test_df)
-    k = max(1, int(n * top_pct))
-    threshold = np.sort(y_prob)[::-1][k]
-
-    y_pred_binary = (y_prob >= threshold).astype(int)
+    y_pred_binary = np.zeros(len(test_df), dtype=int)
+    periods = (
+        test_df["cutoff_period"].to_numpy()
+        if "cutoff_period" in test_df
+        else np.zeros(len(test_df))
+    )
+    for period in np.unique(periods):
+        indices = np.flatnonzero(periods == period)
+        k = max(1, int(len(indices) * top_pct))
+        selected = indices[np.argsort(-y_prob[indices], kind="stable")[:k]]
+        y_pred_binary[selected] = 1
     y_true = test_df["churn_label"].values
 
     df_eval = test_df.copy()
@@ -127,18 +133,13 @@ def train_model_without_demographics(
 ) -> Tuple[lgb.LGBMClassifier, float, float]:
     """Train LightGBM without demographic features to assess fairness vs performance trade-off."""
     train_df = splits["train"]
-    val_df = splits["val"]
     test_df = splits["test"]
 
     X_train_raw, y_train, _ = prepare_feature_matrices(train_df, include_demographics=False)
-    X_val_raw, y_val, _ = prepare_feature_matrices(val_df, include_demographics=False)
     X_test_raw, y_test, _ = prepare_feature_matrices(test_df, include_demographics=False)
 
-    all_cols = sorted(
-        list(set(X_train_raw.columns) | set(X_val_raw.columns) | set(X_test_raw.columns))
-    )
+    all_cols = sorted(X_train_raw.columns)
     X_train = X_train_raw.reindex(columns=all_cols, fill_value=0.0)
-    X_val_raw.reindex(columns=all_cols, fill_value=0.0)
     X_test = X_test_raw.reindex(columns=all_cols, fill_value=0.0)
 
     clf = lgb.LGBMClassifier(**best_params)
@@ -146,10 +147,6 @@ def train_model_without_demographics(
 
     test_preds = clf.predict_proba(X_test)[:, 1]
     pr_auc_no_demo = float(average_precision_score(y_test, test_preds))
-    roc_auc_no_demo = float(
-        _lgb_model_roc_auc := average_precision_score(y_test, test_preds)
-    )  # placeholder
-
     from sklearn.metrics import roc_auc_score
 
     roc_auc_no_demo = float(roc_auc_score(y_test, test_preds))
@@ -208,7 +205,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    import json
-    from typing import Any
-
     main()

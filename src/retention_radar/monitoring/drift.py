@@ -55,7 +55,7 @@ def compute_drift_report(
     features: List[str] = MONITORED_FEATURES,
 ) -> pd.DataFrame:
     """Compute drift report comparing baseline training periods to latest cutoff partition."""
-    # Baseline: train cutoffs (6-15)
+    # Baseline: training cutoffs
     baseline_df = features_df[features_df["split"] == "train"]
 
     # Current / Latest: latest cutoff in test partition
@@ -100,7 +100,7 @@ def compute_drift_report(
             }
         )
 
-    # Model score drift: compare test start (cutoff 20) vs latest test (cutoff 23)
+    # Fixed state-heuristic drift, distinct from the fitted model prediction.
     if "markov_churn_score" in features_df.columns:
         exp_scores = (
             features_df[features_df["cutoff_period"] == 20]["markov_churn_score"].dropna().values
@@ -110,7 +110,7 @@ def compute_drift_report(
             psi_score = calculate_psi(exp_scores, act_scores)
             records.append(
                 {
-                    "feature_name": "churn_model_score",
+                    "feature_name": "state_heuristic_score",
                     "baseline_mean": round(float(np.mean(exp_scores)), 4),
                     "current_mean": round(float(np.mean(act_scores)), 4),
                     "psi": psi_score,

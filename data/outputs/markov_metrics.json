@@ -12,116 +12,117 @@
   "discount_factor_gamma": 0.9927,
   "expected_days_to_lapse": {
     "New": {
-      "mean_days": 1887.5,
-      "ci_lower_95": 1732.4,
-      "ci_upper_95": 2072.8
+      "mean_days": 1777.6,
+      "ci_lower_95": 1625.7,
+      "ci_upper_95": 1953.4
     },
     "Champion": {
-      "mean_days": 2104.8,
-      "ci_lower_95": 1949.6,
-      "ci_upper_95": 2288.1
+      "mean_days": 1959.7,
+      "ci_lower_95": 1810.1,
+      "ci_upper_95": 2134.9
     },
     "Regular": {
-      "mean_days": 1904.8,
-      "ci_lower_95": 1747.7,
-      "ci_upper_95": 2088.8
+      "mean_days": 1785.0,
+      "ci_lower_95": 1632.1,
+      "ci_upper_95": 1958.9
     },
     "At-Risk": {
-      "mean_days": 1617.1,
-      "ci_lower_95": 1468.5,
-      "ci_upper_95": 1795.1
+      "mean_days": 1517.8,
+      "ci_lower_95": 1374.6,
+      "ci_upper_95": 1689.3
     },
     "Dormant": {
-      "mean_days": 1208.3,
-      "ci_lower_95": 1076.9,
-      "ci_upper_95": 1367.2
+      "mean_days": 1138.0,
+      "ci_lower_95": 1011.5,
+      "ci_upper_95": 1293.7
     }
   },
   "markov_reward_clv": {
-    "New": 1777.49,
-    "Champion": 2406.85,
-    "Regular": 1784.72,
-    "At-Risk": 1455.93,
-    "Dormant": 1077.89,
+    "New": 1559.68,
+    "Champion": 2101.35,
+    "Regular": 1536.1,
+    "At-Risk": 1252.57,
+    "Dormant": 930.16,
     "Lapsed": 0.0
   },
   "stationary_distribution": {
     "New": 0.0,
-    "Champion": 0.2431,
-    "Regular": 0.5559,
-    "At-Risk": 0.0775,
-    "Dormant": 0.056,
-    "Lapsed": 0.0675
+    "Champion": 0.191,
+    "Regular": 0.5948,
+    "At-Risk": 0.0821,
+    "Dormant": 0.0597,
+    "Lapsed": 0.0724
   },
   "period_25_observed_distribution": {
     "New": 0.0,
-    "Champion": 0.2376,
-    "Regular": 0.57,
+    "Champion": 0.202,
+    "Regular": 0.6056,
     "At-Risk": 0.0832,
     "Dormant": 0.0532,
     "Lapsed": 0.056
   },
   "assumption_tests": {
     "order_test": {
-      "log_likelihood_1st_order": -21648.95,
-      "log_likelihood_2nd_order": -19837.41,
-      "lr_statistic": 3623.08,
+      "log_likelihood_1st_order": -21305.13,
+      "log_likelihood_2nd_order": -19516.18,
+      "lr_statistic": 3577.89,
       "degrees_of_freedom": 60,
       "p_value": 0.0,
-      "bic_1st_order": 43560.45,
-      "bic_2nd_order": 40567.51,
+      "bic_1st_order": 42872.82,
+      "bic_2nd_order": 39925.05,
       "preferred_model": "2nd_order"
     },
     "homogeneity_test": {
-      "chi2_statistic": 38.94,
+      "chi2_statistic": 89.17,
       "degrees_of_freedom": 11,
-      "p_value": 5.416236490588363e-05,
+      "p_value": 2.4237406259934694e-14,
       "is_homogeneous_005": false
     }
   },
   "survival_benchmark": {
     "median_survival_periods": {
-      "Champion": Infinity,
-      "Regular": Infinity,
+      "Champion": null,
+      "Regular": null,
       "At-Risk": 21.0,
       "Dormant": 2.0
     },
+    "concordance_scope": "Descriptive fit on observed histories; not held-out evaluation",
     "concordance_index": 0.7551,
     "cph_summary": {
       "coef": {
-        "baseline_trips": -0.0010108909997657966,
-        "has_demographics": -1.7850550616459546,
-        "log_spend": -0.3228128503547243
+        "baseline_trips": -0.0010108909997658384,
+        "has_demographics": -1.785055061645953,
+        "log_spend": -0.32281285035472423
       },
       "exp(coef)": {
         "baseline_trips": 0.9989896197784127,
-        "has_demographics": 0.1677878220721785,
-        "log_spend": 0.7241093584973285
+        "has_demographics": 0.16778782207217874,
+        "log_spend": 0.7241093584973286
       },
       "se(coef)": {
-        "baseline_trips": 0.011986164953948051,
-        "has_demographics": 0.18437444750354604,
+        "baseline_trips": 0.011986164953948058,
+        "has_demographics": 0.18437444750354592,
         "log_spend": 0.026522974834532146
       },
       "coef lower 95%": {
-        "baseline_trips": -0.02450334262226017,
-        "has_demographics": -2.1464223384223757,
-        "log_spend": -0.3747969257932695
+        "baseline_trips": -0.02450334262226023,
+        "has_demographics": -2.146422338422374,
+        "log_spend": -0.37479692579326945
       },
       "coef upper 95%": {
-        "baseline_trips": 0.02248156062272858,
-        "has_demographics": -1.4236877848695335,
-        "log_spend": -0.27082877491617907
+        "baseline_trips": 0.02248156062272855,
+        "has_demographics": -1.4236877848695322,
+        "log_spend": -0.270828774916179
       },
       "exp(coef) lower 95%": {
         "baseline_trips": 0.9757944272007822,
-        "has_demographics": 0.11690164503792977,
-        "log_spend": 0.6874288636886235
+        "has_demographics": 0.11690164503792996,
+        "log_spend": 0.6874288636886237
       },
       "exp(coef) upper 95%": {
         "baseline_trips": 1.0227361753723874,
-        "has_demographics": 0.24082426921016054,
-        "log_spend": 0.76274708665843
+        "has_demographics": 0.24082426921016084,
+        "log_spend": 0.7627470866584302
       },
       "cmp to": {
         "baseline_trips": 0.0,
@@ -129,22 +130,22 @@
         "log_spend": 0.0
       },
       "z": {
-        "baseline_trips": -0.08433815183169369,
-        "has_demographics": -9.681683583684356,
-        "log_spend": -12.171064986814047
+        "baseline_trips": -0.08433815183169714,
+        "has_demographics": -9.681683583684352,
+        "log_spend": -12.171064986814045
       },
       "p": {
-        "baseline_trips": 0.9327875796664667,
-        "has_demographics": 3.607260443681928e-22,
-        "log_spend": 4.432610278799379e-34
+        "baseline_trips": 0.932787579666464,
+        "has_demographics": 3.6072604436820592e-22,
+        "log_spend": 4.432610278799505e-34
       },
       "-log2(p)": {
-        "baseline_trips": 0.10037951611834697,
-        "has_demographics": 71.23151449826291,
-        "log_spend": 110.79739870182631
+        "baseline_trips": 0.10037951611835128,
+        "has_demographics": 71.23151449826285,
+        "log_spend": 110.79739870182627
       }
     }
   },
-  "backtest_avg_markov_tvd": 0.0215,
-  "backtest_avg_persistence_tvd": 0.0179
+  "backtest_avg_markov_tvd": 0.0186,
+  "backtest_avg_persistence_tvd": 0.0125
 }

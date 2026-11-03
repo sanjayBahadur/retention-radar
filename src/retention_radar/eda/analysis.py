@@ -1,5 +1,6 @@
 """Core logic for exploratory data analysis, KPI calculations, and chart exports."""
 
+import json
 from pathlib import Path
 from typing import Any, Dict
 
@@ -66,7 +67,7 @@ def compute_churn_base_rate(con: duckdb.DuckDBPyConnection) -> Dict[str, Any]:
         WITH active_households AS (
             SELECT period_id, household_key
             FROM marts.fct_household_period_state
-            WHERE period_id BETWEEN 6 AND 15
+            WHERE period_id BETWEEN 6 AND 13
               AND trips > 0
         ),
         future_activity AS (
@@ -269,13 +270,14 @@ def generate_all_eda_figures(db_path: Path, figures_dir: Path) -> Dict[str, Any]
     fig.savefig(figures_dir / "eda_cohort_retention.png")
     plt.close(fig)
 
-    con.close()
-    return {
-        "kpis": compute_headline_kpis(duckdb.connect(str(db_path), read_only=True)),
+    summary = {
+        "kpis": compute_headline_kpis(con),
         "concentration": conc,
-        "churn": compute_churn_base_rate(duckdb.connect(str(db_path), read_only=True)),
-        "demographics": compute_demographic_coverage(duckdb.connect(str(db_path), read_only=True)),
+        "churn": compute_churn_base_rate(con),
+        "demographics": compute_demographic_coverage(con),
     }
+    con.close()
+    return summary
 
 
 def main() -> None:
@@ -286,6 +288,17 @@ def main() -> None:
     figures_dir = root / cfg.paths.figures_dir
 
     results = generate_all_eda_figures(db_path=db_path, figures_dir=figures_dir)
+    serializable = {
+        **results,
+        "concentration": {
+            key: value
+            for key, value in results["concentration"].items()
+            if key not in {"cum_pop", "cum_spend"}
+        },
+    }
+    out = root / cfg.paths.data_outputs
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "eda_summary.json").write_text(json.dumps(serializable, indent=2) + "\n")
     print("EDA Generation Complete:")
     print("  Headline KPIs:", results["kpis"])
     print("  Top 20% Revenue Share:", results["concentration"]["top_20pct_revenue_share"], "%")

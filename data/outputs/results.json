@@ -1,41 +1,47 @@
 {
-  "project": "Retention Radar: Customer Retention & Lifecycle Intelligence",
+  "project": "Retention Radar: deciding where retention outreach deserves a test",
   "author": "Sanjay Bahadur",
-  "last_updated": "2026-06-07",
+  "last_updated": "2026-11-03",
+  "evidence": {
+    "churn": "out-of-time prediction",
+    "market_basket": "observed association",
+    "uplift": "observational estimate",
+    "financial_impact": "modeled scenario"
+  },
   "markov": {
     "expected_days_to_lapse": {
       "New": {
-        "mean_days": 1887.5,
-        "ci_lower_95": 1732.4,
-        "ci_upper_95": 2072.8
+        "mean_days": 1777.6,
+        "ci_lower_95": 1625.7,
+        "ci_upper_95": 1953.4
       },
       "Champion": {
-        "mean_days": 2104.8,
-        "ci_lower_95": 1949.6,
-        "ci_upper_95": 2288.1
+        "mean_days": 1959.7,
+        "ci_lower_95": 1810.1,
+        "ci_upper_95": 2134.9
       },
       "Regular": {
-        "mean_days": 1904.8,
-        "ci_lower_95": 1747.7,
-        "ci_upper_95": 2088.8
+        "mean_days": 1785.0,
+        "ci_lower_95": 1632.1,
+        "ci_upper_95": 1958.9
       },
       "At-Risk": {
-        "mean_days": 1617.1,
-        "ci_lower_95": 1468.5,
-        "ci_upper_95": 1795.1
+        "mean_days": 1517.8,
+        "ci_lower_95": 1374.6,
+        "ci_upper_95": 1689.3
       },
       "Dormant": {
-        "mean_days": 1208.3,
-        "ci_lower_95": 1076.9,
-        "ci_upper_95": 1367.2
+        "mean_days": 1138.0,
+        "ci_lower_95": 1011.5,
+        "ci_upper_95": 1293.7
       }
     },
     "markov_reward_clv": {
-      "New": 1777.49,
-      "Champion": 2406.85,
-      "Regular": 1784.72,
-      "At-Risk": 1455.93,
-      "Dormant": 1077.89,
+      "New": 1559.68,
+      "Champion": 2101.35,
+      "Regular": 1536.1,
+      "At-Risk": 1252.57,
+      "Dormant": 930.16,
       "Lapsed": 0.0
     }
   },
@@ -48,87 +54,318 @@
     "top_contributor": "TYPEA"
   },
   "clv": {
-    "selected_method": "LightGBM Tweedie Regression",
-    "holdout_spearman_rank_corr": 0.9162,
-    "holdout_mae_dollars": 228.71,
-    "holdout_rmse_dollars": 349.64,
-    "mean_26w_clv_margin_dollars": 244.57
+    "selected_method": "Recent 26-week spend",
+    "roster_method": "LightGBM fixed before the historical scoring cutoff",
+    "holdout_spearman_rank_corr": 0.8179,
+    "holdout_mae_dollars": 339.2,
+    "holdout_rmse_dollars": 529.1,
+    "error_units": "sales dollars over 26 weeks",
+    "mean_26w_clv_margin_dollars": 234.41,
+    "validation": {
+      "horizon_weeks": 26,
+      "history_days": 182,
+      "train_feature_cutoff_day": 336,
+      "train_outcome_end_day": 518,
+      "test_feature_cutoff_day": 518,
+      "test_outcome_end_day": 700,
+      "score_cutoff_day": 700,
+      "evaluation_households": 2498,
+      "error_unit": "sales dollars over 26 weeks",
+      "frequency_monetary_correlation": 0.0039,
+      "correlation_p_value": 0.8522542845063761,
+      "chosen_method": "Recent 26-week spend",
+      "selection_metric": "lowest test MAE (exploratory selection)",
+      "chosen_method_spearman": 0.8179,
+      "comparison_table": [
+        {
+          "method": "Recent 26-week spend",
+          "spearman_rank_corr": 0.8179,
+          "mae_dollars": 339.2,
+          "rmse_dollars": 529.1
+        },
+        {
+          "method": "BG/NBD + Gamma-Gamma",
+          "spearman_rank_corr": 0.8086,
+          "mae_dollars": 351.74,
+          "rmse_dollars": 544.92
+        },
+        {
+          "method": "LightGBM (Tweedie)",
+          "spearman_rank_corr": 0.8112,
+          "mae_dollars": 355.99,
+          "rmse_dollars": 549.55
+        }
+      ],
+      "gross_margin_assumption": 0.25,
+      "annual_discount_rate_assumption": 0.1,
+      "mean_clv_26w_dollars": 223.31,
+      "median_clv_26w_dollars": 142.14
+    }
   },
   "churn": {
-    "best_model": "LightGBM (Optuna Tuned + Isotonic Calibration)",
-    "test_pr_auc": 0.337,
+    "best_model": "LightGBM (selected for the demonstration; compare with logistic regression)",
+    "test_pr_auc": 0.3803,
     "test_pr_auc_ci_95": [
-      0.2997,
-      0.3802
+      0.3359,
+      0.4275
     ],
-    "test_roc_auc": 0.8769,
-    "test_brier_score": 0.058,
-    "expected_calibration_error_ece": 0.0091,
-    "top_10pct_lift": 4.638,
-    "top_10pct_capture_rate": 0.4635,
-    "top_20pct_capture_rate": 0.7388,
-    "optimal_targeting_threshold_p": 0.08,
-    "fairness_ablation_pr_auc_without_demographics": 0.3627
+    "test_roc_auc": 0.8851,
+    "test_brier_score": 0.0561,
+    "expected_calibration_error_ece": 0.0061,
+    "top_10pct_lift": 4.911,
+    "top_10pct_capture_rate": 0.4902,
+    "top_20pct_capture_rate": 0.75,
+    "optimal_targeting_threshold_p": 0.4742,
+    "test_observations": 9397,
+    "test_households": 2423,
+    "base_churn_rate": 0.07576886240289454,
+    "scored_households": 2351,
+    "roster_cutoff_period": 23
   },
   "financial_impact": {
+    "interpretation": "Illustrative scenario, not realized profit. Mean CLV approximates value of captured households; response is assumed.",
     "scale_households": 100000,
-    "base_churn_rate": 0.0758,
-    "expected_churners": 7580,
+    "base_churn_rate": 0.07576886240289454,
+    "expected_churners": 7576.886240289455,
     "top_20pct_contacted_households": 20000,
     "contact_cost_per_household_dollars": 2.0,
     "total_campaign_cost_dollars": 40000.0,
-    "top_20pct_churn_capture_rate": 0.7388,
-    "captured_churners": 5600.1,
+    "top_20pct_churn_capture_rate": 0.75,
+    "captured_churners": 5682.664680217091,
     "intervention_save_rate": 0.1,
-    "saved_households": 560.0,
-    "mean_26w_clv_margin_dollars": 244.57,
-    "gross_margin_retained_dollars": 136961.74,
-    "net_margin_per_26w_cycle_dollars": 96961.74,
-    "annualized_net_margin_dollars": 193923.49
+    "saved_households": 568.2664680217091,
+    "mean_26w_clv_margin_dollars": 234.41498936622713,
+    "gross_margin_retained_dollars": 133210.18,
+    "net_margin_per_26w_cycle_dollars": 93210.18
   },
   "uplift": {
-    "hillstrom_benchmark_passed": true,
-    "x5_ground_truth_ate": 0.0377,
-    "confounding_stress_test": {
-      "naive_bias": 0.0078,
-      "ipw_bias": -0.0015,
-      "aipw_doubly_robust_bias": -0.0001
-    },
-    "dunnhumby_best_learner": "S-Learner (LightGBM)",
-    "dunnhumby_qini": 0.6706,
-    "dunnhumby_auuc": 0.982,
-    "uplift_at_30pct_spend_day": 0.4758,
-    "top_30pct_policy_roi": 3.61,
-    "top_30pct_net_profit": 20434.96,
-    "random_targeting_net_profit": 8173.3,
+    "dunnhumby_best_learner": "T-Learner",
+    "dunnhumby_qini": 0.1598,
+    "dunnhumby_auuc": 0.6651,
+    "uplift_at_30pct_spend_day": 0.3124,
+    "top_30pct_policy_roi": 12.512,
+    "top_30pct_net_profit": 18492.37,
+    "random_targeting_net_profit": 7180.74,
     "segments": {
-      "persuadables_count": 8860,
-      "sure_things_count": 246,
-      "sleeping_dogs_count": 202,
-      "lost_causes_count": 137
+      "persuadables_count": 2096,
+      "sure_things_count": 84,
+      "sleeping_dogs_count": 187,
+      "lost_causes_count": 99
+    },
+    "metadata": {
+      "selected_learner": "T-Learner",
+      "selection_method": "Highest pooled household-held-out Qini; exploratory model comparison",
+      "evaluation_folds": 3,
+      "eligible_observations": 46396,
+      "overlap_observations": 28319,
+      "unique_households": 2466,
+      "observation_unit": "One household in one historical campaign",
+      "roster_unit": "One household in its latest evaluated campaign context",
+      "scenario_days": 35,
+      "offer_cost_dollars": 2.0,
+      "gross_margin_assumption": 0.25,
+      "limitations": [
+        "Historical campaign assignment was not randomized; unmeasured confounding remains.",
+        "Household-held-out evaluation is not a future-campaign validation.",
+        "Model selection and reported ranking use the same cross-validation; no final untouched test.",
+        "Qini and top-segment treated/control contrasts are descriptive, not causal estimates.",
+        "Net profit uses predicted effects, a 35-day window and assumed margin; no realized savings.",
+        "Score bands do not establish that an individual benefits from or is harmed by contact.",
+        "The latest historical contexts differ by household; this is a retrospective planning roster."
+      ]
     },
     "ab_test": {
-      "sample_size_per_arm": 231,
-      "total_sample_size": 462,
-      "duration_weeks": 8,
-      "alpha": 0.05,
-      "power": 0.8
+      "experiment_name": "Retention offer vs no study offer among high-score households",
+      "status": "Planning proposal; no intervention experiment has been run",
+      "eligible_population": "Unique households in the highest 30% of the frozen uplift ranking",
+      "randomization_unit": "Household; one assignment for the full experiment",
+      "randomization": "1:1, stratified by prior spend and score band",
+      "treatment": "One retention offer with recorded contact and redemption cost",
+      "control": "No study offer; record business-as-usual promotions in both arms",
+      "primary_metric": "Household average spend per day over eight weeks",
+      "secondary_metric": "Gross margin minus offer and fulfillment costs per household",
+      "analysis": "Intention-to-treat difference in means with a 95% confidence interval",
+      "statistical_test": "Two-sample independent t-test (two-sided)",
+      "significance_level_alpha": 0.05,
+      "statistical_power": 0.8,
+      "baseline_standard_deviation": 6.5194,
+      "minimum_detectable_effect_spend_day": 0.5,
+      "mde_source": "Planning assumption: $0.50 additional spend per household per day",
+      "cohens_d": 0.0767,
+      "required_sample_size_per_arm": 2670,
+      "total_sample_size": 5340,
+      "available_active_households": 739,
+      "feasible_in_available_pool": false,
+      "recommended_duration_weeks": 8,
+      "sampling_ratio": "1:1 (offer / no study offer)",
+      "guardrails": [
+        "Track opt-outs, complaints and negative net margin; define stop thresholds before launch.",
+        "Keep household assignment fixed; avoid overlapping study offers and log other campaigns.",
+        "Freeze eligibility, primary outcome, sample size and analysis before randomization."
+      ],
+      "rollout_rule": "Consider rollout only if net margin improves and prespecified guardrails pass.",
+      "causal_assumptions": [
+        "Random allocation is implemented and analyzed by original assignment.",
+        "No material spillover between households or contamination across study arms.",
+        "Outcome recording is comparable across arms, including households with zero purchases."
+      ],
+      "limitations": [
+        "Historical outcome variance is a planning proxy for eight-week household outcomes.",
+        "Recalculate sample size with pilot variance; heavy tails may require more households.",
+        "The test evaluates an offer within the selected pool, not uplift ranking vs random targeting."
+      ],
+      "variance_source": "Observed campaign spend/day, latest eligible campaign per household",
+      "variance_spend_day": 42.5031
     }
   },
   "market_basket": {
-    "total_rules_lift_above_1_2": 27312,
-    "max_lift": 11.85,
+    "total_rules_lift_above_1_2": 26904,
+    "max_lift": 11.9059,
     "top_early_warning_categories": [
       "DIAPERS & DISPOSABLES",
       "CHICKEN/POULTRY",
       "DOG FOODS",
       "BEEF",
       "CHICKEN"
-    ]
+    ],
+    "effect_unit": "percentage-point change in category spend share relative to controls"
   },
   "monitoring": {
     "metrics_monitored": 11,
     "stable_metrics_count": 10,
     "retraining_alert_flag": true
+  },
+  "artifact_sha256": {
+    "models/churn_lightgbm_metrics.json": "f2c826df69b9781cdf8444fcfd01db4aa04d9dc648b2ee7181768f8ddcb0aa39",
+    "clv_at_churn_cutoff.parquet": "87143e5f9d2bda38f927d3298c4934304e634350d5101b52d1e3802a2c7f12dd",
+    "markov_metrics.json": "e53abcbec1cb3937f4257f7d925acc1a1b54e87ef327671677b4fe50febf2d84",
+    "attribution.parquet": "824dfddf06d42a7ae82f758e901ac324affb8aaf6e17cfed7f71ec38a8c62b4d",
+    "clv_comparison.parquet": "c70c945cec108c88128a07f933e0a1e1def7546b36fda2a3a7e49f9db9d3333d",
+    "clv_summary.json": "0cf4423b8dd00b8e9acaf4075e17f56342beda370f5756b5c3ac568de302c7e1",
+    "churn_model_comparison.parquet": "7a66e575e89b3ae638bc4730a951f37314cfdbd9e3bf89d1135737798b179a20",
+    "churn_features.parquet": "008c6dee24a2606310bac2b248ab2d9a9e15591e9106253d272895fd43cdecb2",
+    "churn_scores.parquet": "e4bb97990e04fb6e57fcdf957b4018f3e50dbc7fc3ab85ab40ab1432690604e2",
+    "profit_curve.parquet": "d55b83c3317441a12c3d488794013368846fa3e8562ba9daf0c10259e0690e43",
+    "uplift_eval.parquet": "cc65e683dacf018626dd8f6fd0ebe875b1d1b24a979ae34feb5580e4a37ebe08",
+    "uplift_scores.parquet": "7bb2f75bcc4e188fc1646ee81ff22ab561404b09095392763832466e76198893",
+    "uplift_roi.parquet": "8bc3e97c447a4e602c55298ed7480db6e221afbcb7331b21ff9c42c97e3b18cc",
+    "uplift_metadata.json": "089395320f123cc33d8f67f9a5f225ff25378c082c924cfc1db6c7ed8faca868",
+    "ab_test_design.json": "0632cb238b12332710287f4fd176d9b762dfe929d8bfd26f53c6a36a748dc6c9",
+    "basket_rules.parquet": "6ad7fe874f3dff899712738ffb95ce9505b2e674a1da346a52b1a04264298bd0",
+    "early_warning_categories.parquet": "d84ee232381963376d701e3ed6dd4d9120d3d14a53f8a0f7efc48112c366729f",
+    "drift_report.parquet": "fd767319a43325695a92720c0485fb01c6346a9f4d12cbc92e506921bfc5a7ed"
+  },
+  "benchmarks": {
+    "hillstrom_benchmark": {
+      "dataset": "Hillstrom Email Marketing",
+      "treatment_group": "Womens E-Mail",
+      "control_group": "No E-Mail",
+      "sample_size": 42693,
+      "evaluation_sample_size": 12808,
+      "evaluation": "Stratified 70/30 customer holdout",
+      "interpretation": "Mean-effect agreement is a sanity check, not a causal-validity certificate",
+      "treated_visit_rate": 0.1507,
+      "control_visit_rate": 0.1151,
+      "raw_diff": 0.03557,
+      "bootstrap_ci_95": [
+        0.02359,
+        0.04776
+      ],
+      "causalml_t_learner_ate": 0.04873,
+      "is_within_ci": false
+    },
+    "x5_benchmark": {
+      "dataset": "X5 RetailHero",
+      "sample_size": 60000,
+      "evaluation_sample_size": 18000,
+      "reference_visit_rate_difference": 0.035994,
+      "treatment_share": 0.5021,
+      "features": [
+        "age",
+        "age_is_missing",
+        "gender_M",
+        "gender_U"
+      ],
+      "learner_comparison": [
+        {
+          "learner": "T-Learner",
+          "qini": 0.0469,
+          "qini_ci_lower": -0.0738,
+          "qini_ci_upper": 0.1804,
+          "auuc": 0.5447,
+          "uplift_at_10pct": 0.0744,
+          "uplift_at_30pct": 0.046,
+          "ate_mean": 0.0364
+        },
+        {
+          "learner": "S-Learner",
+          "qini": 0.045,
+          "qini_ci_lower": -0.0756,
+          "qini_ci_upper": 0.1774,
+          "auuc": 0.5439,
+          "uplift_at_10pct": 0.0681,
+          "uplift_at_30pct": 0.0453,
+          "ate_mean": 0.0358
+        },
+        {
+          "learner": "X-Learner",
+          "qini": 0.0393,
+          "qini_ci_lower": -0.0803,
+          "qini_ci_upper": 0.1659,
+          "auuc": 0.5372,
+          "uplift_at_10pct": 0.06,
+          "uplift_at_30pct": 0.0465,
+          "ate_mean": 0.0365
+        },
+        {
+          "learner": "DR-Learner",
+          "qini": 0.0345,
+          "qini_ci_lower": -0.1001,
+          "qini_ci_upper": 0.161,
+          "auuc": 0.5326,
+          "uplift_at_10pct": 0.0526,
+          "uplift_at_30pct": 0.0468,
+          "ate_mean": 0.0358
+        }
+      ],
+      "balance": [
+        {
+          "feature": "age",
+          "treated_mean": 46.3811,
+          "control_mean": 46.5453,
+          "abs_smd": 0.0102,
+          "is_balanced": true
+        },
+        {
+          "feature": "age_is_missing",
+          "treated_mean": 0.0,
+          "control_mean": 0.0,
+          "abs_smd": 0.0,
+          "is_balanced": true
+        },
+        {
+          "feature": "gender_M",
+          "treated_mean": 0.1697,
+          "control_mean": 0.1704,
+          "abs_smd": 0.0017,
+          "is_balanced": true
+        },
+        {
+          "feature": "gender_U",
+          "treated_mean": 0.465,
+          "control_mean": 0.4615,
+          "abs_smd": 0.0071,
+          "is_balanced": true
+        }
+      ],
+      "observed_balance_below_0_10": true,
+      "evaluation": "Stratified 70/30 client holdout",
+      "limits": [
+        "Randomized-sample difference is an estimate, not known population ground truth.",
+        "Redemption and issue-date features excluded because pre-treatment timing is unverified.",
+        "Age-selection exercise uses measured confounding; it cannot verify hidden confounding.",
+        "Bootstrap intervals condition on fitted models and do not include model-selection uncertainty."
+      ]
+    }
   }
 }

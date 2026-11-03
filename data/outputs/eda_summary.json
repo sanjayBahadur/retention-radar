@@ -1,0 +1,24 @@
+{
+  "kpis": {
+    "total_households": 2500,
+    "total_baskets": 272110,
+    "total_revenue": 7921184.7,
+    "avg_basket_spend": 29.11,
+    "spend_per_household": 3168.47,
+    "trips_per_hh_per_period": 4.35
+  },
+  "concentration": {
+    "top_20pct_revenue_share": 53.1,
+    "gini_coefficient": 0.5034
+  },
+  "churn": {
+    "total_active_instances": 15807,
+    "churn_instances": 742,
+    "churn_base_rate_pct": 4.69
+  },
+  "demographics": {
+    "total_households": 2500,
+    "demographic_households": 801,
+    "coverage_pct": 32.04
+  }
+}

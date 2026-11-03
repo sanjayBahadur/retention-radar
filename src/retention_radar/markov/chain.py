@@ -227,7 +227,8 @@ def run_markov_pipeline(
 
     con = duckdb.connect(str(db_path), read_only=True)
     train_df = con.execute("""
-        SELECT household_key, period_id, state, prior_state, next_state, spend, trips
+        SELECT household_key, period_id, state, prior_state,
+               CASE WHEN period_id < 19 THEN next_state END AS next_state, spend, trips
         FROM marts.fct_household_period_state
         WHERE period_id BETWEEN 4 AND 19;
     """).df()
@@ -348,7 +349,7 @@ def run_markov_pipeline(
     }
 
     with open(output_dir / "markov_metrics.json", "w", encoding="utf-8") as f:
-        json.dump(metrics_summary, f, indent=2)
+        json.dump(metrics_summary, f, indent=2, allow_nan=False)
 
     return metrics_summary
 

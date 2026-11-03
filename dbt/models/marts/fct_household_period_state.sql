@@ -1,12 +1,13 @@
 -- Lifecycle state assignment for each household at the end of each 28-day period (1 to 25)
--- Cutoff for Champion state is fit strictly on training periods (periods 4 to 19)
+-- Champion threshold uses only the current period, available at each scoring cutoff.
 
 WITH champion_cutoff AS (
     SELECT
+        period_id,
         QUANTILE_CONT(trailing_3period_spend, 0.75) AS spend_p75
     FROM {{ ref('int_household_period_activity') }}
-    WHERE period_id BETWEEN 4 AND 19 
-      AND trips > 0
+    WHERE trips > 0
+    GROUP BY period_id
 ),
 
 assigned_states AS (
@@ -45,7 +46,7 @@ assigned_states AS (
                 END
         END AS state
     FROM {{ ref('int_household_period_activity') }} a
-    CROSS JOIN champion_cutoff c
+    JOIN champion_cutoff c ON a.period_id = c.period_id
 )
 
 SELECT

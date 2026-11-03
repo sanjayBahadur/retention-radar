@@ -431,7 +431,7 @@ def main() -> None:
     db_path = root / cfg.paths.warehouse_db
     manifest_path = raw_dir / "MANIFEST.json"
     fixture_dir = root / cfg.paths.sample_fixture
-    data_dict_md = root / "docs" / "data_dictionary.md"
+    data_dict_md = root / "docs" / "raw_schema_profile.md"
 
     counts = ingest_raw_data(
         raw_dir=raw_dir,

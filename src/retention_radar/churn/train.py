@@ -69,7 +69,7 @@ def prepare_feature_matrices(
         ]
 
     X_num = df[num_cols].fillna(0.0).copy()
-    X_cat = pd.get_dummies(df[cat_cols], drop_first=True, dtype=float)
+    X_cat = pd.get_dummies(df[cat_cols], drop_first=False, dtype=float)
     X = pd.concat([X_num, X_cat], axis=1)
     y = df["churn_label"].astype(int)
     feature_names = list(X.columns)
@@ -100,12 +100,25 @@ def compute_lift_and_capture(
     y_true: np.ndarray,
     y_prob: np.ndarray,
     percentile: float = 0.10,
+    period_ids: Optional[np.ndarray] = None,
 ) -> Tuple[float, float]:
-    """Compute lift and capture rate at a given top percentile cutoff."""
-    n = len(y_true)
-    top_k = max(1, int(n * percentile))
-    order = np.argsort(-y_prob)
-    top_y = y_true[order[:top_k]]
+    """Evaluate a contact budget separately at each cutoff, then pool counts.
+
+    Without period_ids this retains the single-ranking behavior used by callers
+    evaluating one cohort. Stable sorting gives ties the same treatment as the
+    error review, without exceeding the contact budget.
+    """
+    y_true, y_prob = np.asarray(y_true), np.asarray(y_prob)
+    periods = np.zeros(len(y_true)) if period_ids is None else np.asarray(period_ids)
+    if len(periods) != len(y_true):
+        raise ValueError("Each prediction needs a matching period identifier.")
+    selected = []
+    for period in np.unique(periods):
+        indices = np.flatnonzero(periods == period)
+        top_k = max(1, int(len(indices) * percentile))
+        ranked = np.argsort(-y_prob[indices], kind="stable")
+        selected.extend(indices[ranked[:top_k]])
+    top_y = y_true[selected]
 
     base_rate = np.mean(y_true)
     top_rate = np.mean(top_y)
@@ -121,10 +134,15 @@ def bootstrap_metric_cis(
     cluster_ids: Optional[np.ndarray] = None,
     n_bootstrap: int = 1000,
     seed: int = 42,
+    period_ids: Optional[np.ndarray] = None,
 ) -> Dict[str, Tuple[float, float]]:
     """Compute 95% bootstrap confidence intervals (household-clustered when cluster_ids is provided)."""
     rng = np.random.default_rng(seed)
     n = len(y_true)
+    if period_ids is not None:
+        period_ids = np.asarray(period_ids)
+        if len(period_ids) != n:
+            raise ValueError("Each prediction needs a matching period identifier.")
     pr_aucs = []
     lifts = []
 
@@ -140,7 +158,12 @@ def bootstrap_metric_cis(
             if np.sum(sample_y) == 0:
                 continue
             pr_aucs.append(average_precision_score(sample_y, sample_p))
-            lift, _ = compute_lift_and_capture(sample_y, sample_p, percentile=0.10)
+            lift, _ = compute_lift_and_capture(
+                sample_y,
+                sample_p,
+                percentile=0.10,
+                period_ids=period_ids[idx] if period_ids is not None else None,
+            )
             lifts.append(lift)
     else:
         for _ in range(n_bootstrap):
@@ -150,7 +173,12 @@ def bootstrap_metric_cis(
             if np.sum(sample_y) == 0:
                 continue
             pr_aucs.append(average_precision_score(sample_y, sample_p))
-            lift, _ = compute_lift_and_capture(sample_y, sample_p, percentile=0.10)
+            lift, _ = compute_lift_and_capture(
+                sample_y,
+                sample_p,
+                percentile=0.10,
+                period_ids=period_ids[idx] if period_ids is not None else None,
+            )
             lifts.append(lift)
 
     return {
@@ -228,9 +256,7 @@ def train_and_evaluate_all_models(
     X_test_raw, y_test, _ = prepare_feature_matrices(test_df)
 
     # Reindex to ensure identical feature columns
-    all_cols = sorted(
-        list(set(X_train_raw.columns) | set(X_val_raw.columns) | set(X_test_raw.columns))
-    )
+    all_cols = sorted(X_train_raw.columns)
     X_train = X_train_raw.reindex(columns=all_cols, fill_value=0.0)
     X_val = X_val_raw.reindex(columns=all_cols, fill_value=0.0)
     X_test = X_test_raw.reindex(columns=all_cols, fill_value=0.0)
@@ -240,35 +266,22 @@ def train_and_evaluate_all_models(
     predictions: Dict[str, np.ndarray] = {}
     calibrated_predictions: Dict[str, np.ndarray] = {}
 
-    # 1. Markov State Baseline
-    predictions["Markov Baseline"] = test_df["markov_churn_score"].values
-    calibrated_predictions["Markov Baseline"] = test_df["markov_churn_score"].values
+    # Simple baselines learned from training data only.
+    state_rates = train_df.assign(label=y_train.values).groupby("current_state")["label"].mean()
+    state_scores = test_df["current_state"].map(state_rates).fillna(y_train.mean()).to_numpy()
+    predictions["State Baseline"] = state_scores
+    calibrated_predictions["State Baseline"] = state_scores
 
-    # 2. Cox Proportional Hazards baseline (proper duration and hazard orientation)
-    from lifelines import CoxPHFitter
-
-    cox_cols = [
-        "tenure_periods",
-        "recency_days",
-        "trips_6p",
-        "spend_6p",
-    ]
-    cox_train_df = train_df[cox_cols].copy()
-    cox_train_df["duration"] = np.maximum(cox_train_df["tenure_periods"] * 28.0, 1.0)
-    cox_train_df["event"] = y_train.values
-
-    cph = CoxPHFitter(penalizer=0.1)
-    cph.fit(
-        cox_train_df.drop(columns=["tenure_periods"]),
-        duration_col="duration",
-        event_col="event",
+    # An explicit recency rule is a useful business baseline, without a survival
+    # model fitted to repeated rows with incorrectly defined event durations.
+    recency_train = train_df["recency_days"].to_numpy()
+    recency_scores = np.searchsorted(np.sort(recency_train), test_df["recency_days"]) / len(
+        train_df
     )
-
-    cox_test_df = test_df[cox_cols].copy().drop(columns=["tenure_periods"])
-    cox_hazard = cph.predict_partial_hazard(cox_test_df).values
-    cox_norm = (cox_hazard - np.min(cox_hazard)) / (np.max(cox_hazard) - np.min(cox_hazard) + 1e-9)
-    predictions["Cox PH Baseline"] = cox_norm
-    calibrated_predictions["Cox PH Baseline"] = cox_norm
+    predictions["Recency Baseline"] = recency_scores
+    iso_recency = IsotonicRegression(out_of_bounds="clip")
+    iso_recency.fit(train_df["recency_days"], y_train)
+    calibrated_predictions["Recency Baseline"] = iso_recency.predict(test_df["recency_days"])
 
     # 3. Scaled Logistic Regression
     scaler = StandardScaler()
@@ -316,15 +329,25 @@ def train_and_evaluate_all_models(
         brier = round(float(brier_score_loss(y_test_arr, p_cal)), 4)
         ece = compute_ece(y_test_arr, p_cal)
 
-        lift_10, cap_10 = compute_lift_and_capture(y_test_arr, p_raw, percentile=0.10)
-        lift_20, cap_20 = compute_lift_and_capture(y_test_arr, p_raw, percentile=0.20)
+        period_ids = test_df["cutoff_period"].to_numpy()
+        lift_10, cap_10 = compute_lift_and_capture(
+            y_test_arr, p_raw, percentile=0.10, period_ids=period_ids
+        )
+        lift_20, cap_20 = compute_lift_and_capture(
+            y_test_arr, p_raw, percentile=0.20, period_ids=period_ids
+        )
 
         # Household-clustered bootstrap CIs
         cluster_ids = (
             test_df["household_key"].values if "household_key" in test_df.columns else None
         )
         cis = bootstrap_metric_cis(
-            y_test_arr, p_raw, cluster_ids=cluster_ids, n_bootstrap=n_bootstrap, seed=seed
+            y_test_arr,
+            p_raw,
+            cluster_ids=cluster_ids,
+            n_bootstrap=n_bootstrap,
+            seed=seed,
+            period_ids=period_ids,
         )
 
         comparison_rows.append(
@@ -407,6 +430,13 @@ def main() -> None:
     comp_df.to_parquet(comp_path, index=False)
     print("\nModel Comparison Table:")
     print(comp_df.to_string())
+
+    predictions = splits["test"][
+        ["household_key", "cutoff_period", "current_state", "tenure_periods", "churn_label"]
+    ].copy()
+    predictions["raw_p"] = artifacts["test_raw_preds"]
+    predictions["calibrated_p"] = artifacts["test_calibrated_preds"]
+    predictions.to_parquet(out_dir / "churn_test_predictions.parquet", index=False)
 
     # Save LightGBM model and metrics
     lgb_model.booster_.save_model(str(models_dir / "churn_lightgbm.txt"))
