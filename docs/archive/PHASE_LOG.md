@@ -1,3 +1,5 @@
+> Historical planning record. Its figures and completion claims are superseded by the current README, model cards and generated results.
+
 # Phase log
 
 Engineering audit log documenting each completed phase in chronological order.

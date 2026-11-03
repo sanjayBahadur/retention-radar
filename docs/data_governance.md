@@ -1,21 +1,21 @@
-# Data Governance & Privacy Note
+# Data use and provenance
 
-## 1. Data Sources and Licensing Terms
+## Sources
 
-| Source | Role | Licensing & Redistribution Restrictions |
-| :--- | :--- | :--- |
-| **Dunnhumby The Complete Journey** | Core household transactions, promotions, demographics | Non-commercial, research, and educational use only. **Strictly forbids redistribution of raw transaction or customer-level records.** |
-| **X5 RetailHero Uplift** | Randomized campaign ground truth (Part A & C uplift) | Released for competition and academic research; cite X5 Retail Group; no redistribution of raw customer records. |
-| **Hillstrom MineThatData** | Randomized 3-arm campaign test fixture | Public benchmark data; cite Kevin Hillstrom / MineThatData. |
+Retention Radar uses Dunnhumby's *The Complete Journey* for retail purchase and campaign analysis, Kevin Hillstrom's email-marketing data for a randomized benchmark, and X5 RetailHero data for uplift evaluation and confounding experiments.
 
-## 2. Anonymization & Aggregation Policy
-- **Never commit `data/`:** The `.gitignore` excludes `data/raw/`, `data/warehouse.duckdb`, and large Parquet tables.
-- **Aggregated Outputs:** Any public portfolio artifacts (such as Streamlit dashboards or Power BI workbooks) present only aggregated statistics, cohort curves, and anonymized/re-keyed IDs where necessary.
-- **No PII Exposure:** No customer names, phone numbers, or addresses exist in these datasets. Household identifiers are synthetic numerical keys (`household_key`).
+Code licensing and dataset permissions are separate. The repository's MIT license covers project code; it does not grant rights to the source datasets. Obtain data from its original provider or an authorized distribution and review that provider's current terms before use or redistribution. Do not infer permission from a mirror or from this repository.
 
-## 3. Production & Enterprise Governance Considerations
-In an enterprise retail deployment with real consumer data:
-1. **PII and PCI-DSS:** Transaction records containing payment details must be tokenized; customer identities must reside in restricted Customer Data Platforms (CDP) governed by RBAC.
-2. **Consent & Marketing Opt-Outs:** Customers opting out under GDPR/CCPA/state privacy legislation must be excluded dynamically from downstream campaign targeting tables.
-3. **Retention & Deletion Policy:** Transaction data aged beyond statutory audit requirements must be anonymized or purged.
-4. **Algorithmic Fairness:** Predictive churn and uplift models must be monitored continuously for disparate impact across demographic segments (age, income, household composition).
+## What outputs represent
+
+Household identifiers are pseudonymous source keys. They are not proof that the records are anonymous or suitable for unrestricted sharing. The project does not need customer names, contact information, or payment details.
+
+The public case study emphasizes aggregate analysis. Row-level exports exist to demonstrate local analytical workflows; review the source terms and intended audience before sharing those files. Synthetic test data should be clearly labeled and must not be described as real customer evidence.
+
+Raw datasets and the local warehouse belong outside version control. Do not commit credentials, downloaded archives, or personal data. Review generated outputs before publication as well as source files.
+
+## Boundaries for any future use
+
+This repository does not implement a retailer's consent system, identity access controls, deletion process, or marketing operations. A real deployment would need those controls, documented data retention, restricted row-level access, and measured contact outcomes.
+
+Demographic information is incomplete. Audit differences with sample sizes and uncertainty, and avoid inferring fairness from the removal of selected features. Historical response estimates should not trigger automatic punitive actions or permanent contact suppression.

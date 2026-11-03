@@ -1,181 +1,75 @@
-# Retention Radar: Business Intelligence Starter Package (Power BI & Tableau)
+# Explore the data in Tableau or Power BI
 
-This directory provides the production data model, connection recipes, complete data dictionary, and 10 ready-to-paste calculated fields (DAX and Tableau formulas) for deploying **Retention Radar** into enterprise analytics platforms (Power BI, Tableau, Looker, Metabase).
+The project includes CSV exports and connection guidance. It does not include a finished Tableau workbook or Power BI report.
 
----
+Generate exports from the analysis outputs:
 
-## 1. Data Architecture & Export Formats
+```bash
+.venv/bin/python -m retention_radar.bi.export
+```
 
-All datasets are pre-processed, schema-validated via Pandera, and exported to `data/outputs/bi/` as UTF-8 CSVs (and corresponding Parquet files in `data/outputs/`):
+Files are written to `data/outputs/bi/`. The exporter preserves source column names.
 
-| File Name | Grain / Primary Key | Record Count | Description |
-| :--- | :--- | :--- | :--- |
-| `bi_churn_scores.csv` | `household_key` | 2,351 | Active household churn risk scores, deciles, calibrated probabilities, expected margin loss, and top-3 SHAP reason codes |
-| `bi_customer_segments.csv` | `household_key`, `campaign` | 9,444 | Causal uplift CATE $\tau$, targeting decile, and uplift segment (`Persuadables`, `Sure Things`, `Sleeping Dogs`, `Lost Causes`) |
-| `bi_lifecycle_states.csv` | `period_id`, `state` | 175 | Longitudinal Markov state distributions, transition shares, and cohort movement |
-| `bi_campaign_attribution.csv` | `campaign_type` | 3 | Algorithmic Markov removal effect shares vs first-touch, last-touch, and linear heuristics |
-| `bi_basket_rules.csv` | `antecedents_str`, `consequents_str` | 100 | Top merchandise association rules (support $\ge 1\%$, lift $> 1.20$) for cross-selling and churn prevention |
+## Tables and safe relationships
 
----
+| File | Grain | Suggested use |
+| --- | --- | --- |
+| `bi_churn_scores.csv` | Household at a scoring cutoff | Risk, forecast margin, explanation, and contact-list exploration |
+| `bi_customer_segments.csv` | Unique household contact roster | Exploratory response estimates; inspect campaign context before joining |
+| `bi_lifecycle_states.csv` | Period–state | Activity composition over time |
+| `bi_campaign_attribution.csv` | Campaign type | Credit allocation under different attribution rules |
+| `bi_basket_rules.csv` | One of the first 100 exported rules | Filterable support, confidence, and lift |
 
-## 2. Platform Connection Instructions
+Import CSVs with household IDs as whole numbers or text, probabilities as decimal numbers, and money fields as currency. Keep aggregate lifecycle, attribution, and basket-rule tables as separate data sources. If relating household tables, verify uniqueness first and use a single filter direction; do not physically join aggregate tables to a customer roster or sum duplicated customer values.
 
-### Connecting in Power BI Desktop
-1. Open **Power BI Desktop** $\rightarrow$ Click **Get Data** $\rightarrow$ Select **Text/CSV** or **Folder**.
-2. Browse to `<project_root>/data/outputs/bi/`.
-3. Load the 5 CSV tables:
-   - Ensure `household_key` is formatted as **Whole Number** or **Text**.
-   - Ensure probability and margin columns (`calibrated_p`, `clv_26w`, `expected_margin_loss`, `uplift_tau`) are formatted as **Decimal Number** / **Currency ($)**.
-4. Go to the **Model View** to define relationships:
-   - Create a **1-to-Many relationship** from `bi_churn_scores` (`household_key`) to `bi_customer_segments` (`household_key`).
-   - Cross-filter direction: **Both** or **Single (bi_churn_scores filters bi_customer_segments)**.
+## Suggested report
 
-### Connecting in Tableau Desktop
-1. Open **Tableau Desktop** $\rightarrow$ Under *Connect* $\rightarrow$ Select **Text file**.
-2. Select `bi_churn_scores.csv` as the primary logical table.
-3. Add a Relationship (noodle) to `bi_customer_segments.csv` joining on `household_key = household_key`.
-4. Connect independently or as separate datasources to `bi_lifecycle_states.csv`, `bi_campaign_attribution.csv`, and `bi_basket_rules.csv`.
-5. Extract the data or use Live connection for real-time batch file refreshes.
+1. **Shopping changes:** Lifecycle composition and category-share changes with definitions beside the chart.
+2. **Contact priorities:** Risk versus forecast margin, filters for risk decile, and a household table with reason codes.
+3. **What to test:** Observational campaign response estimates and transparent financial assumptions.
 
----
+A count of selected households is not churn capture. Capture requires labeled future outcomes from the evaluation dataset. Current score exports do not contain those outcomes.
 
-## 3. Data Dictionary
+## Example measures
 
-### `bi_churn_scores.csv`
-- `household_key` *(Integer)*: Unique anonymized Dunnhumby household identifier.
-- `state` *(String)*: Current Markov lifecycle health state (`Champion`, `Regular`, `At-Risk`, `New`).
-- `calibrated_p` *(Float $\in [0, 1]$)*: Isotonically calibrated probability of churning over the next 28-day cycle.
-- `risk_decile` *(Integer $\in [1, 10]$)*: 1 = Highest 10% churn probability; 10 = Lowest 10% churn probability.
-- `clv_26w` *(Float)*: Projected 26-week customer margin lifetime value ($).
-- `expected_margin_loss` *(Float)*: `calibrated_p * clv_26w` — dollar margin at immediate risk.
-- `primary_driver` *(String)*: Top SHAP feature contributing to elevated churn risk.
-- `secondary_driver` *(String)*: Second highest SHAP feature contribution.
-- `tertiary_driver` *(String)*: Third highest SHAP feature contribution.
+These examples use actual columns from the churn export. They illustrate analysis, not a measured campaign return.
 
-### `bi_customer_segments.csv`
-- `household_key` *(Integer)*: Household identifier.
-- `campaign` *(Integer)*: Direct marketing campaign ID.
-- `treated` *(Integer $\in \{0, 1\}$)*: 1 if household was contacted in campaign; 0 if uncontacted control.
-- `propensity_score` *(Float $\in [0.05, 0.95]$)*: Estimated conditional probability of receiving treatment.
-- `uplift_tau` *(Float)*: Individual conditional average treatment effect ($\hat{\tau}(X)$ in incremental spend per day).
-- `segment` *(String)*: Uplift classification:
-  - `Persuadables`: $\hat{\tau} > 0.05$ (target with retention coupon).
-  - `Sure Things`: Baseline spend high, $\hat{\tau} \approx 0$ (do not discount).
-  - `Sleeping Dogs`: $\hat{\tau} < -0.05$ (negative response; suppress from communications).
-  - `Lost Causes`: Baseline spend low, $\hat{\tau} \le 0$ (do not waste budget).
+Power BI:
 
----
+```dax
+Scored Households = DISTINCTCOUNT('bi_churn_scores'[household_key])
 
-## 4. Calculated Fields Reference
+Forecast Margin at Risk =
+SUMX(
+    'bi_churn_scores',
+    'bi_churn_scores'[calibrated_p] * 'bi_churn_scores'[clv_26w]
+)
 
-### 5 Power BI DAX Measures
+Scenario Net Value = SUM('bi_churn_scores'[targeting_ev])
+```
 
-1. **Total Churn Value at Risk ($):**
-   ```dax
-   Total_Churn_Value_At_Risk = 
-   SUMX('bi_churn_scores', 'bi_churn_scores'[calibrated_p] * 'bi_churn_scores'[clv_26w])
-   ```
+`Forecast Margin at Risk` is a descriptive product of risk and forecast value. `Scenario Net Value` uses the assumptions embedded when scoring; changing a report filter does not change the assumed save rate or contact cost.
 
-2. **Top Decile Capture Rate (%):**
-   ```dax
-   Top_Decile_Churn_Capture = 
-   DIVIDE(
-       CALCULATE(COUNTROWS('bi_churn_scores'), 'bi_churn_scores'[risk_decile] = 1),
-       CALCULATE(COUNTROWS('bi_churn_scores'), ALL('bi_churn_scores')),
-       0
-   )
-   ```
+Tableau:
 
-3. **Incremental Net Uplift Margin ($) at 10% Winback:**
-   ```dax
-   Net_Uplift_Profit = 
-   SUMX(
-       FILTER('bi_customer_segments', 'bi_customer_segments'[segment] = "Persuadables"),
-       ('bi_customer_segments'[uplift_tau] * 28 * 0.28) - 1.50
-   )
-   ```
+```text
+// Forecast margin at risk
+[calibrated_p] * [clv_26w]
 
-4. **Targeting ROI Ratio:**
-   ```dax
-   Targeting_ROI = 
-   DIVIDE(
-       [Net_Uplift_Profit],
-       CALCULATE(COUNTROWS('bi_customer_segments'), 'bi_customer_segments'[segment] = "Persuadables") * 1.50,
-       0
-   )
-   ```
+// Risk band for exploring the current roster
+IF [risk_decile] <= 2 THEN "Highest-scored fifth"
+ELSE "Remaining households"
+END
+```
 
-5. **Sleeping Dogs Headcount Alert:**
-   ```dax
-   Sleeping_Dogs_Count = 
-   CALCULATE(
-       DISTINCTCOUNT('bi_customer_segments'[household_key]),
-       'bi_customer_segments'[segment] = "Sleeping Dogs"
-   )
-   ```
+For a custom scenario, define visible parameters for save rate and contact cost:
 
----
+```text
+[calibrated_p] * [Assumed Save Rate] * [clv_26w] - [Contact Cost]
+```
 
-### 5 Tableau Calculated Fields
+Use the configured margin and discount assumptions in the underlying value forecast. Do not add margin a second time to `clv_26w`, which is already a margin estimate.
 
-1. **Urgency Classification:**
-   ```sql
-   // Name: [Outreach Urgency Level]
-   IF [calibrated_p] >= 0.25 AND [clv_26w] >= 500 THEN "Priority Tier 1 (High P, High CLV)"
-   ELSEIF [calibrated_p] >= 0.25 THEN "Priority Tier 2 (High P, Modest CLV)"
-   ELSEIF [clv_26w] >= 500 THEN "Priority Tier 3 (VIP Watchlist)"
-   ELSE "Low Risk / Self-Sustaining"
-   END
-   ```
+## Interpretation
 
-2. **Campaign Net Value Creation ($):**
-   ```sql
-   // Name: [Net Campaign Profit]
-   IF [segment] = "Persuadables" THEN ([uplift_tau] * 28.0 * 0.28) - 1.50
-   ELSEIF [segment] = "Sleeping Dogs" THEN ([uplift_tau] * 28.0 * 0.28) - 1.50 // Destruction
-   ELSE -1.50 // Pure cost waste on Sure Things and Lost Causes
-   END
-   ```
-
-3. **Sleeping Dog Warning Flag:**
-   ```sql
-   // Name: [Is Sleeping Dog Suppression]
-   IF [segment] = "Sleeping Dogs" THEN "🚨 SUPPRESS FROM OUTREACH"
-   ELSE "ELIGIBLE"
-   END
-   ```
-
-4. **Estimated Expected Value Saved:**
-   ```sql
-   // Name: [Expected Margin Saved @ 10% Winback]
-   [expected_margin_loss] * 0.10
-   ```
-
-5. **Early Warning Lift Ratio:**
-   ```sql
-   // Name: [Association Lift Level]
-   IF [lift] >= 2.0 THEN "Strong Complement (Lift >= 2.0)"
-   ELSEIF [lift] >= 1.5 THEN "Moderate Complement (Lift 1.5-2.0)"
-   ELSE "Baseline Association"
-   END
-   ```
-
----
-
-## 5. Recommended BI Dashboard Structure
-
-We recommend configuring a 3-tab layout matching the core operational surfaces:
-
-1. **Executive Churn Command Center:**
-   - Top KPI cards: Total Value at Risk, Top Decile Churners, 26-Week Mean CLV, Active Households.
-   - Scatter plot: `clv_26w` (Y-axis) vs `calibrated_p` (X-axis) colored by `state` to isolate high-value at-risk accounts.
-   - Target list grid with sortable columns and multi-select filters on `primary_driver` and `risk_decile`.
-
-2. **Causal Marketing & Uplift Allocator:**
-   - Donut chart: Distribution of households across the 4 uplift segments (`Persuadables`, `Sure Things`, `Sleeping Dogs`, `Lost Causes`).
-   - Bar chart: Channel Attribution share comparison (Markov Removal Effect vs First/Last/Linear Touch).
-   - Net profit curve by targeting percentile to guide marketing spend thresholds.
-
-3. **Merchandise Affinity & Category Early Warning:**
-   - Horizontal bar chart of top early-warning precursor categories (chicken/poultry, beef, diapers, infant formula).
-   - Filterable table of top association rules with Antecedent $\rightarrow$ Consequent relationships.
+Category-share differences use percentage points. Attribution shares describe a credit-allocation model. Estimated campaign response is observational. Negative estimates do not establish harm or justify automatic suppression. See the [technical notes](../reports/technical_report.md) for evaluation and the [data use note](../docs/data_governance.md) before sharing row-level exports.

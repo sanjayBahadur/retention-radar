@@ -1,3 +1,5 @@
+> Historical planning record. Its figures and completion claims are superseded by the current README, model cards and generated results.
+
 # Retention Radar — Architecture & Engineering Blueprint
 
 Comprehensive implementation blueprint, technical specifications, and phase acceptance criteria.
