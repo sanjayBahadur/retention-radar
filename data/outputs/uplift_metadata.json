@@ -1,0 +1,22 @@
+{
+  "selected_learner": "T-Learner",
+  "selection_method": "Highest pooled household-held-out Qini; exploratory model comparison",
+  "evaluation_folds": 3,
+  "eligible_observations": 46396,
+  "overlap_observations": 28319,
+  "unique_households": 2466,
+  "observation_unit": "One household in one historical campaign",
+  "roster_unit": "One household in its latest evaluated campaign context",
+  "scenario_days": 35,
+  "offer_cost_dollars": 2.0,
+  "gross_margin_assumption": 0.25,
+  "limitations": [
+    "Historical campaign assignment was not randomized; unmeasured confounding remains.",
+    "Household-held-out evaluation is not a future-campaign validation.",
+    "Model selection and reported ranking use the same cross-validation; no final untouched test.",
+    "Qini and top-segment treated/control contrasts are descriptive, not causal estimates.",
+    "Net profit uses predicted effects, a 35-day window and assumed margin; no realized savings.",
+    "Score bands do not establish that an individual benefits from or is harmed by contact.",
+    "The latest historical contexts differ by household; this is a retrospective planning roster."
+  ]
+}

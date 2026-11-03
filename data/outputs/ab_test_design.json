@@ -1,20 +1,43 @@
 {
-  "experiment_name": "Retention Radar Top-30% Uplift Policy vs BAU",
-  "primary_metric": "incremental_spend_per_day",
+  "experiment_name": "Retention offer vs no study offer among high-score households",
+  "status": "Planning proposal; no intervention experiment has been run",
+  "eligible_population": "Unique households in the highest 30% of the frozen uplift ranking",
+  "randomization_unit": "Household; one assignment for the full experiment",
+  "randomization": "1:1, stratified by prior spend and score band",
+  "treatment": "One retention offer with recorded contact and redemption cost",
+  "control": "No study offer; record business-as-usual promotions in both arms",
+  "primary_metric": "Household average spend per day over eight weeks",
+  "secondary_metric": "Gross margin minus offer and fulfillment costs per household",
+  "analysis": "Intention-to-treat difference in means with a 95% confidence interval",
   "statistical_test": "Two-sample independent t-test (two-sided)",
   "significance_level_alpha": 0.05,
   "statistical_power": 0.8,
-  "baseline_standard_deviation": 1.6806,
-  "minimum_detectable_effect_spend_day": 0.4612,
-  "cohens_d": 0.2744,
-  "required_sample_size_per_arm": 210,
-  "total_sample_size": 420,
-  "available_active_households": 2400,
+  "baseline_standard_deviation": 6.5194,
+  "minimum_detectable_effect_spend_day": 0.5,
+  "mde_source": "Planning assumption: $0.50 additional spend per household per day",
+  "cohens_d": 0.0767,
+  "required_sample_size_per_arm": 2670,
+  "total_sample_size": 5340,
+  "available_active_households": 739,
+  "feasible_in_available_pool": false,
   "recommended_duration_weeks": 8,
-  "sampling_ratio": "1:1 (50% treatment policy / 50% business-as-usual)",
+  "sampling_ratio": "1:1 (offer / no study offer)",
+  "guardrails": [
+    "Track opt-outs, complaints and negative net margin; define stop thresholds before launch.",
+    "Keep household assignment fixed; avoid overlapping study offers and log other campaigns.",
+    "Freeze eligibility, primary outcome, sample size and analysis before randomization."
+  ],
+  "rollout_rule": "Consider rollout only if net margin improves and prespecified guardrails pass.",
   "causal_assumptions": [
-    "Unconfoundedness (Conditional Independence): Given pre-window covariates, treatment assignment is independent of potential outcomes.",
-    "Stable Unit Treatment Value Assumption (SUTVA): No interference between households; grocery consumption in one household does not affect neighbors.",
-    "Positivity (Common Support): All eligible households have a strictly positive probability of receiving the retention offer (0.05 <= e(X) <= 0.95)."
-  ]
+    "Random allocation is implemented and analyzed by original assignment.",
+    "No material spillover between households or contamination across study arms.",
+    "Outcome recording is comparable across arms, including households with zero purchases."
+  ],
+  "limitations": [
+    "Historical outcome variance is a planning proxy for eight-week household outcomes.",
+    "Recalculate sample size with pilot variance; heavy tails may require more households.",
+    "The test evaluates an offer within the selected pool, not uplift ranking vs random targeting."
+  ],
+  "variance_source": "Observed campaign spend/day, latest eligible campaign per household",
+  "variance_spend_day": 42.5031
 }

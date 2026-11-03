@@ -1,0 +1,93 @@
+{
+  "dataset": "X5 RetailHero",
+  "sample_size": 60000,
+  "evaluation_sample_size": 18000,
+  "reference_visit_rate_difference": 0.035994,
+  "treatment_share": 0.5021,
+  "features": [
+    "age",
+    "age_is_missing",
+    "gender_M",
+    "gender_U"
+  ],
+  "learner_comparison": [
+    {
+      "learner": "T-Learner",
+      "qini": 0.0469,
+      "qini_ci_lower": -0.0738,
+      "qini_ci_upper": 0.1804,
+      "auuc": 0.5447,
+      "uplift_at_10pct": 0.0744,
+      "uplift_at_30pct": 0.046,
+      "ate_mean": 0.0364
+    },
+    {
+      "learner": "S-Learner",
+      "qini": 0.045,
+      "qini_ci_lower": -0.0756,
+      "qini_ci_upper": 0.1774,
+      "auuc": 0.5439,
+      "uplift_at_10pct": 0.0681,
+      "uplift_at_30pct": 0.0453,
+      "ate_mean": 0.0358
+    },
+    {
+      "learner": "X-Learner",
+      "qini": 0.0393,
+      "qini_ci_lower": -0.0803,
+      "qini_ci_upper": 0.1659,
+      "auuc": 0.5372,
+      "uplift_at_10pct": 0.06,
+      "uplift_at_30pct": 0.0465,
+      "ate_mean": 0.0365
+    },
+    {
+      "learner": "DR-Learner",
+      "qini": 0.0345,
+      "qini_ci_lower": -0.1001,
+      "qini_ci_upper": 0.161,
+      "auuc": 0.5326,
+      "uplift_at_10pct": 0.0526,
+      "uplift_at_30pct": 0.0468,
+      "ate_mean": 0.0358
+    }
+  ],
+  "balance": [
+    {
+      "feature": "age",
+      "treated_mean": 46.3811,
+      "control_mean": 46.5453,
+      "abs_smd": 0.0102,
+      "is_balanced": true
+    },
+    {
+      "feature": "age_is_missing",
+      "treated_mean": 0.0,
+      "control_mean": 0.0,
+      "abs_smd": 0.0,
+      "is_balanced": true
+    },
+    {
+      "feature": "gender_M",
+      "treated_mean": 0.1697,
+      "control_mean": 0.1704,
+      "abs_smd": 0.0017,
+      "is_balanced": true
+    },
+    {
+      "feature": "gender_U",
+      "treated_mean": 0.465,
+      "control_mean": 0.4615,
+      "abs_smd": 0.0071,
+      "is_balanced": true
+    }
+  ],
+  "observed_balance_below_0_10": true,
+  "evaluation": "Stratified 70/30 client holdout",
+  "limits": [
+    "Randomized-sample difference is an estimate, not known population ground truth.",
+    "Redemption and issue-date features excluded because pre-treatment timing is unverified.",
+    "Age-selection exercise uses measured confounding; it cannot verify hidden confounding.",
+    "Bootstrap intervals condition on fitted models and do not include model-selection uncertainty."
+  ]
+}

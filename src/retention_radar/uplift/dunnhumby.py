@@ -1,5 +1,6 @@
 """Observational uplift modeling, propensity weighting, and customer segmentation on Dunnhumby."""
 
+import json
 from pathlib import Path
 from typing import List, Tuple
 
@@ -18,6 +19,8 @@ from retention_radar.config import get_project_root, load_project_config
 def extract_dunnhumby_campaign_units(db_path: Path) -> pd.DataFrame:
     """Extract campaign-household units, pre-window covariates, and campaign window outcomes."""
     con = duckdb.connect(str(db_path), read_only=True)
+    # Sum currency as decimal: parallel floating-point sums can change rounded
+    # covariates at half-cent boundaries and make model runs differ.
     query = """
     WITH valid_campaigns AS (
         SELECT campaign, campaign_type, start_day, end_day, (end_day - start_day + 1) AS camp_duration
@@ -50,8 +53,8 @@ def extract_dunnhumby_campaign_units(db_path: Path) -> pd.DataFrame:
             u.campaign,
             u.household_key,
             COUNT(b.basket_id) AS pre_trips,
-            ROUND(SUM(b.spend) / 56.0, 4) AS pre_spend_per_day,
-            ROUND(SUM(b.total_retail_disc + b.total_coupon_disc) / NULLIF(SUM(b.gross_spend), 0), 4) AS pre_discount_share,
+            ROUND(SUM(CAST(b.spend AS DECIMAL(18, 2))) / 56.0, 4) AS pre_spend_per_day,
+            ROUND(SUM(CAST(b.total_retail_disc AS DECIMAL(18, 2)) + CAST(b.total_coupon_disc AS DECIMAL(18, 2))) / NULLIF(SUM(CAST(b.gross_spend AS DECIMAL(18, 2))), 0), 4) AS pre_discount_share,
             SUM(b.coupon_used) AS pre_coupon_trips
         FROM eligible_units u
         JOIN marts.fct_baskets b ON u.household_key = b.household_key AND b.day BETWEEN u.start_day - 56 AND u.start_day - 1
@@ -62,7 +65,7 @@ def extract_dunnhumby_campaign_units(db_path: Path) -> pd.DataFrame:
             u.campaign,
             u.household_key,
             COUNT(b.basket_id) AS camp_trips,
-            ROUND(SUM(b.spend) / u.camp_duration, 4) AS camp_spend_per_day,
+            ROUND(SUM(CAST(b.spend AS DECIMAL(18, 2))) / u.camp_duration, 4) AS camp_spend_per_day,
             MAX(b.coupon_used) AS camp_coupon_used
         FROM eligible_units u
         JOIN marts.fct_baskets b ON u.household_key = b.household_key AND b.day BETWEEN u.start_day AND u.end_day
@@ -71,6 +74,8 @@ def extract_dunnhumby_campaign_units(db_path: Path) -> pd.DataFrame:
     SELECT
         u.campaign,
         u.campaign_type,
+        u.start_day,
+        u.camp_duration,
         u.household_key,
         u.treated,
         COALESCE(p.pre_trips, 0) AS pre_trips,
@@ -91,7 +96,7 @@ def extract_dunnhumby_campaign_units(db_path: Path) -> pd.DataFrame:
     """
     df = con.execute(query).df()
     con.close()
-    return df
+    return df.sort_values(["household_key", "campaign"]).reset_index(drop=True)
 
 
 def compute_balance_table(
@@ -143,8 +148,15 @@ def compute_targeting_roi_curve(
     cate_preds: np.ndarray,
     offer_cost: float = 2.00,
     gross_margin: float = 0.25,
+    scenario_days: int = 35,
 ) -> pd.DataFrame:
-    """Compute incremental margin, cost, and net ROI across targeting depth (10% to 100%)."""
+    """Model one offer per unique household; predicted effects are unvalidated assumptions."""
+    if test_df.empty or len(test_df) != len(cate_preds) or not np.isfinite(cate_preds).all():
+        raise ValueError("Targeting scenarios require finite predictions for a nonempty roster.")
+    if test_df["household_key"].duplicated().any():
+        raise ValueError("Targeting scenarios require one row per household.")
+    if scenario_days <= 0 or offer_cost < 0 or not 0 <= gross_margin <= 1:
+        raise ValueError("Invalid scenario duration, offer cost, or margin.")
     df_eval = test_df.copy()
     df_eval["cate"] = cate_preds
     df_sorted = df_eval.sort_values("cate", ascending=False).reset_index(drop=True)
@@ -161,22 +173,21 @@ def compute_targeting_roi_curve(
         sub = df_sorted.iloc[:k]
         targeted_mean_cate = float(sub["cate"].mean())
 
-        # Assuming average campaign window duration ~ 35 days
-        camp_days = 35.0
-        incremental_spend = targeted_mean_cate * camp_days * k
+        incremental_spend = targeted_mean_cate * scenario_days * k
         incremental_margin = incremental_spend * gross_margin
         total_offer_cost = offer_cost * k
         net_profit = incremental_margin - total_offer_cost
         roi = net_profit / total_offer_cost if total_offer_cost > 0 else 0.0
 
         # Random targeting comparison
-        random_spend = overall_mean_cate * camp_days * k
+        random_spend = overall_mean_cate * scenario_days * k
         random_margin = random_spend * gross_margin
         random_net = random_margin - total_offer_cost
 
         records.append(
             {
                 "targeting_percentile": int(pct * 100),
+                "scenario_days": scenario_days,
                 "households_targeted": k,
                 "mean_uplift_spend_per_day": round(targeted_mean_cate, 4),
                 "incremental_margin": round(incremental_margin, 2),
@@ -195,7 +206,9 @@ def segment_customers(
     cate_preds: np.ndarray,
     clv_df: pd.DataFrame,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Segment customers into Persuadables, Sure Things, Lost Causes, Sleeping Dogs."""
+    """Assign exploratory score bands, not proven individual treatment-response types."""
+    if df["household_key"].duplicated().any():
+        raise ValueError("Customer segments require one row per household.")
     df_seg = df.copy()
     df_seg["uplift_tau"] = cate_preds
 
@@ -207,9 +220,7 @@ def segment_customers(
             how="left",
         )
     else:
-        df_seg["clv_26w"] = 250.0
-
-    df_seg["clv_26w"] = df_seg["clv_26w"].fillna(250.0)
+        df_seg["clv_26w"] = np.nan
 
     # Segmentation rules:
     # Persuadables: positive uplift (tau > 0.15)
@@ -253,20 +264,122 @@ def segment_customers(
     return df_seg, seg_summary_df
 
 
-def main() -> None:
-    """Run Dunnhumby observational uplift modeling, propensity balance, and evaluation."""
-    project_root = get_project_root()
-    cfg = load_project_config()
-    db_path = project_root / cfg.paths.warehouse_db
-    out_dir = project_root / cfg.paths.data_outputs
-    out_dir.mkdir(parents=True, exist_ok=True)
+def evaluate_grouped_learners(
+    df: pd.DataFrame,
+    feature_columns: List[str],
+    seed: int = 42,
+    n_splits: int = 3,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Score every household in a held-out fold, including train-only propensity fits.
 
-    print("Extracting Dunnhumby campaign-household observational units...")
-    raw_df = extract_dunnhumby_campaign_units(db_path=db_path)
-    print(
-        f"Extracted {len(raw_df)} eligible units across {raw_df['household_key'].nunique()} households."
+    Qini and treated/control contrasts remain descriptive on observational data.
+    Household grouping avoids sharing the same household across train and test;
+    it does not remove campaign confounding or establish causal identification.
+    """
+    learner_classes = {
+        "S-Learner": BaseSLearner,
+        "T-Learner": BaseTLearner,
+        "X-Learner": BaseXLearner,
+        "DR-Learner": BaseDRLearner,
+    }
+    scored = df.copy().reset_index(drop=True)
+    scored[feature_columns] = scored[feature_columns].fillna(0.0)
+    scored["propensity_score"] = np.nan
+    scored["evaluation_fold"] = -1
+    for name in learner_classes:
+        scored[name] = np.nan
+
+    groups = scored["household_key"]
+    folds = GroupKFold(n_splits=n_splits)
+    for fold, (train_idx, test_idx) in enumerate(folds.split(scored, groups=groups)):
+        train = scored.iloc[train_idx]
+        test = scored.iloc[test_idx]
+        propensity = LogisticRegression(max_iter=2000, random_state=seed)
+        propensity.fit(train[feature_columns], train["treated"])
+        p_train = propensity.predict_proba(train[feature_columns])[:, 1]
+        p_test = propensity.predict_proba(test[feature_columns])[:, 1]
+        train_overlap = (p_train >= 0.05) & (p_train <= 0.95)
+        test_overlap = (p_test >= 0.05) & (p_test <= 0.95)
+        training = train.loc[train_overlap]
+        held_out = test.loc[test_overlap]
+        scored.loc[test_idx, "propensity_score"] = p_test
+        scored.loc[test_idx, "evaluation_fold"] = fold
+        if training["treated"].nunique() != 2 or held_out.empty:
+            raise ValueError("Each fold needs treated and control training data and test overlap.")
+
+        for name, learner_class in learner_classes.items():
+            # DR-Learner also uses NumPy for internal sample splits.
+            np.random.seed(seed + fold)
+            model = learner_class(
+                learner=LGBMRegressor(n_estimators=60, random_state=seed, verbose=-1, n_jobs=1)
+            )
+            fit_args = {
+                "X": training[feature_columns].to_numpy(),
+                "treatment": training["treated"].to_numpy(),
+                "y": training["delta_spend_per_day"].to_numpy(),
+            }
+            predict_args = {"X": held_out[feature_columns].to_numpy()}
+            if name in ("X-Learner", "DR-Learner"):
+                fit_args["p"] = p_train[train_overlap]
+                predict_args["p"] = p_test[test_overlap]
+            model.fit(**fit_args)
+            scored.loc[held_out.index, name] = model.predict(**predict_args).ravel()
+        print(f"Fold {fold + 1}/{n_splits}: scored {len(held_out):,} held-out observations.")
+
+    overlap = scored.dropna(subset=list(learner_classes)).copy()
+    rows = []
+    for name in learner_classes:
+        cate = overlap[name].to_numpy()
+        metric_data = pd.DataFrame(
+            {"y": overlap["delta_spend_per_day"], "w": overlap["treated"], "pred": cate}
+        )
+        # CausalML creates random reference rankings; seed them for repeatable scores.
+        np.random.seed(seed)
+        qini = float(qini_score(metric_data)["pred"])
+        np.random.seed(seed)
+        auuc = float(auuc_score(metric_data)["pred"])
+        ranked = overlap.sort_values(name, ascending=False)
+        contrasts = {}
+        for fraction in (0.10, 0.30):
+            top = ranked.head(max(1, int(len(ranked) * fraction)))
+            treated = top.loc[top["treated"] == 1, "delta_spend_per_day"]
+            control = top.loc[top["treated"] == 0, "delta_spend_per_day"]
+            contrasts[f"uplift_at_{int(fraction * 100)}pct"] = float(
+                treated.mean() - control.mean()
+            )
+        rows.append(
+            {
+                "learner": name,
+                "qini": round(qini, 4),
+                "auuc": round(auuc, 4),
+                **{key: round(value, 4) for key, value in contrasts.items()},
+                "mean_cate": round(float(cate.mean()), 4),
+                "fold_count": n_splits,
+                "observation_count": len(overlap),
+                "unique_households": overlap["household_key"].nunique(),
+            }
+        )
+    evaluation = pd.DataFrame(rows).sort_values("qini", ascending=False).reset_index(drop=True)
+    return evaluation, overlap, scored
+
+
+def latest_household_scores(observations: pd.DataFrame) -> pd.DataFrame:
+    """Use the latest evaluated campaign context once per household for a planning roster."""
+    return (
+        observations.sort_values(["start_day", "campaign"])
+        .drop_duplicates("household_key", keep="last")
+        .sort_values("household_key")
+        .reset_index(drop=True)
     )
 
+
+def main() -> None:
+    """Build descriptive uplift comparisons and clearly labeled planning scenarios."""
+    project_root = get_project_root()
+    cfg = load_project_config()
+    out_dir = project_root / cfg.paths.data_outputs
+    out_dir.mkdir(parents=True, exist_ok=True)
+    raw_df = extract_dunnhumby_campaign_units(project_root / cfg.paths.warehouse_db)
     covariates = [
         "pre_trips",
         "pre_spend_per_day",
@@ -275,150 +388,55 @@ def main() -> None:
         "has_demographics",
         "concurrent_campaigns",
     ]
-
-    # One-hot encode campaign type
-    df = pd.get_dummies(raw_df, columns=["campaign_type"], drop_first=True, dtype=float)
-    feat_cols = covariates + [c for c in df.columns if c.startswith("campaign_type_")]
-
-    # 1. Propensity modeling
-    print("\nFitting propensity score model (Logistic Regression)...")
-    X_prop = df[feat_cols].fillna(0.0).values
-    t_prop = df["treated"].values
-
-    prop_clf = LogisticRegression(max_iter=1000, random_state=cfg.seed)
-    prop_clf.fit(X_prop, t_prop)
-    propensities = prop_clf.predict_proba(X_prop)[:, 1]
-    df["propensity_score"] = propensities
-
-    # Overlap trimming: [0.05, 0.95]
-    overlap_mask = (df["propensity_score"] >= 0.05) & (df["propensity_score"] <= 0.95)
-    trimmed_df = df[overlap_mask].copy().reset_index(drop=True)
-    print(f"Trimmed extreme propensity units: retained {len(trimmed_df)} / {len(df)} units.")
-
-    # 2. Covariate Balance Table before and after IPW
-    print("\nComputing covariate balance table (SMD before vs after IPW)...")
-    balance_df = compute_balance_table(
-        df=trimmed_df,
-        covariates=covariates,
-        propensity_scores=trimmed_df["propensity_score"].values,
+    encoded = pd.get_dummies(raw_df, columns=["campaign_type"], drop_first=True, dtype=float)
+    features = covariates + [c for c in encoded if c.startswith("campaign_type_")]
+    evaluation, observations, all_scored = evaluate_grouped_learners(encoded, features, cfg.seed)
+    selected_learner = str(evaluation.iloc[0]["learner"])
+    observations["uplift_tau"] = observations[selected_learner]
+    # Keep the original campaign label alongside the encoded covariates.
+    observations["campaign_type"] = raw_df.loc[observations.index, "campaign_type"]
+    observations.to_parquet(out_dir / "uplift_observations.parquet", index=False)
+    evaluation.to_parquet(out_dir / "uplift_eval.parquet", index=False)
+    balance = compute_balance_table(
+        observations, covariates, observations["propensity_score"].values
     )
-    print(balance_df.to_string())
-    balance_path = out_dir / "uplift_balance.parquet"
-    balance_df.to_parquet(balance_path, index=False)
+    balance.to_parquet(out_dir / "uplift_balance.parquet", index=False)
 
-    # 3. Fit meta-learners with GroupKFold by household
-    print("\nEvaluating meta-learners with GroupKFold by household...")
-    gkf = GroupKFold(n_splits=3)
-    train_idx, test_idx = next(gkf.split(trimmed_df, groups=trimmed_df["household_key"]))
-
-    train_data = trimmed_df.iloc[train_idx].copy().reset_index(drop=True)
-    test_data = trimmed_df.iloc[test_idx].copy().reset_index(drop=True)
-
-    X_tr = train_data[feat_cols].values
-    t_tr = train_data["treated"].values
-    y_tr = train_data["delta_spend_per_day"].values
-    p_tr = train_data["propensity_score"].values
-
-    X_te = test_data[feat_cols].values
-    t_te = test_data["treated"].values
-    y_te = test_data["delta_spend_per_day"].values
-    p_te = test_data["propensity_score"].values
-
-    learners = {
-        "S-Learner": BaseSLearner(
-            learner=LGBMRegressor(n_estimators=60, random_state=cfg.seed, verbose=-1)
-        ),
-        "T-Learner": BaseTLearner(
-            learner=LGBMRegressor(n_estimators=60, random_state=cfg.seed, verbose=-1)
-        ),
-        "X-Learner": BaseXLearner(
-            learner=LGBMRegressor(n_estimators=60, random_state=cfg.seed, verbose=-1)
-        ),
-        "DR-Learner": BaseDRLearner(
-            learner=LGBMRegressor(n_estimators=60, random_state=cfg.seed, verbose=-1)
-        ),
+    households = latest_household_scores(observations)
+    clv = pd.read_parquet(out_dir / "clv.parquet")
+    scores, segments = segment_customers(households, households["uplift_tau"].values, clv)
+    scores.to_parquet(out_dir / "uplift_scores.parquet", index=False)
+    segments.to_parquet(out_dir / "uplift_segments.parquet", index=False)
+    roi = compute_targeting_roi_curve(
+        households, households["uplift_tau"].values, cfg.offer_cost, cfg.gross_margin
+    )
+    roi.to_parquet(out_dir / "uplift_roi.parquet", index=False)
+    metadata = {
+        "selected_learner": selected_learner,
+        "selection_method": "Highest pooled household-held-out Qini; exploratory model comparison",
+        "evaluation_folds": 3,
+        "eligible_observations": len(all_scored),
+        "overlap_observations": len(observations),
+        "unique_households": len(households),
+        "observation_unit": "One household in one historical campaign",
+        "roster_unit": "One household in its latest evaluated campaign context",
+        "scenario_days": 35,
+        "offer_cost_dollars": cfg.offer_cost,
+        "gross_margin_assumption": cfg.gross_margin,
+        "limitations": [
+            "Historical campaign assignment was not randomized; unmeasured confounding remains.",
+            "Household-held-out evaluation is not a future-campaign validation.",
+            "Model selection and reported ranking use the same cross-validation; no final untouched test.",
+            "Qini and top-segment treated/control contrasts are descriptive, not causal estimates.",
+            "Net profit uses predicted effects, a 35-day window and assumed margin; no realized savings.",
+            "Score bands do not establish that an individual benefits from or is harmed by contact.",
+            "The latest historical contexts differ by household; this is a retrospective planning roster.",
+        ],
     }
-
-    eval_rows = []
-    best_cate = None
-    best_qini = -999.0
-
-    for name, model in learners.items():
-        if name in ["X-Learner", "DR-Learner"]:
-            model.fit(X=X_tr, treatment=t_tr, y=y_tr, p=p_tr)
-            cate = model.predict(X=X_te, p=p_te).ravel()
-        else:
-            model.fit(X=X_tr, treatment=t_tr, y=y_tr)
-            cate = model.predict(X=X_te).ravel()
-
-        eval_df = pd.DataFrame({"y": y_te, "w": t_te, "pred": cate})
-        qini = float(qini_score(eval_df)["pred"])
-        auuc = float(auuc_score(eval_df)["pred"])
-
-        order = np.argsort(-cate)
-        top_10 = order[: int(len(test_data) * 0.10)]
-        top_30 = order[: int(len(test_data) * 0.30)]
-        uplift_10 = float(
-            y_te[top_10][t_te[top_10] == 1].mean() - y_te[top_10][t_te[top_10] == 0].mean()
-        )
-        uplift_30 = float(
-            y_te[top_30][t_te[top_30] == 1].mean() - y_te[top_30][t_te[top_30] == 0].mean()
-        )
-
-        eval_rows.append(
-            {
-                "learner": name,
-                "qini": round(qini, 4),
-                "auuc": round(auuc, 4),
-                "uplift_at_10pct": round(uplift_10, 4),
-                "uplift_at_30pct": round(uplift_30, 4),
-                "mean_cate": round(float(np.mean(cate)), 4),
-            }
-        )
-
-        if qini > best_qini:
-            best_qini = qini
-            best_cate = cate
-
-    eval_table = pd.DataFrame(eval_rows).sort_values("qini", ascending=False).reset_index(drop=True)
-    print("\nDunnhumby Uplift Evaluation:")
-    print(eval_table.to_string())
-    eval_table.to_parquet(out_dir / "uplift_eval.parquet", index=False)
-
-    # 4. Targeting ROI Curve
-    print("\nComputing targeting ROI curve...")
-    offer_cost = cfg.offer_cost if hasattr(cfg, "offer_cost") else 2.00
-    gross_margin = cfg.gross_margin if hasattr(cfg, "gross_margin") else 0.25
-    roi_df = compute_targeting_roi_curve(
-        test_df=test_data,
-        cate_preds=best_cate,
-        offer_cost=offer_cost,
-        gross_margin=gross_margin,
-    )
-    print(roi_df.to_string())
-    roi_df.to_parquet(out_dir / "uplift_roi.parquet", index=False)
-
-    # 5. Customer Segmentation
-    print("\nSegmenting customers into Persuadables, Sure Things, Lost Causes, Sleeping Dogs...")
-    clv_path = out_dir / "clv.parquet"
-    clv_df = pd.read_parquet(clv_path) if clv_path.exists() else pd.DataFrame()
-    scored_test, seg_summary = segment_customers(test_data, best_cate, clv_df)
-    print(seg_summary.to_string())
-
-    # Save full scores
-    scored_cols = [
-        "household_key",
-        "campaign",
-        "campaign_type",
-        "treated",
-        "propensity_score",
-        "uplift_tau",
-        "segment",
-        "clv_26w",
-    ]
-    save_cols = [c for c in scored_cols if c in scored_test.columns]
-    scored_test[save_cols].to_parquet(out_dir / "uplift_scores.parquet", index=False)
-    print(f"\nArtifacts exported to {out_dir}")
+    (out_dir / "uplift_metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    print(evaluation.to_string(index=False))
+    print(segments.to_string(index=False))
+    print(f"Saved {len(observations):,} observations and {len(households):,} unique households.")
 
 
 if __name__ == "__main__":

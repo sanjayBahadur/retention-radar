@@ -1,0 +1,18 @@
+{
+  "dataset": "Hillstrom Email Marketing",
+  "treatment_group": "Womens E-Mail",
+  "control_group": "No E-Mail",
+  "sample_size": 42693,
+  "evaluation_sample_size": 12808,
+  "evaluation": "Stratified 70/30 customer holdout",
+  "interpretation": "Mean-effect agreement is a sanity check, not a causal-validity certificate",
+  "treated_visit_rate": 0.1507,
+  "control_visit_rate": 0.1151,
+  "raw_diff": 0.03557,
+  "bootstrap_ci_95": [
+    0.02359,
+    0.04776
+  ],
+  "causalml_t_learner_ate": 0.04873,
+  "is_within_ci": false
+}

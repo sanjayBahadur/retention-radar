@@ -1,75 +1,58 @@
-# Model Card: Causal Uplift & Retention Experiment Design
+# Campaign response: model notes
 
-## 1. Model Details
-- **Model Name:** Retention Radar Causal Uplift Estimator (CausalML Meta-Learner Suite)
-- **Model Version:** 1.0.0
-- **Model Type:** Causal Machine Learning (S-Learner, T-Learner, X-Learner, Doubly Robust DR-Learner) with LightGBM base estimators
-- **Developed by:** Sanjay Bahadur (`mallasanjay2099@gmail.com`)
-- **Release Date:** May 2026
-- **License:** MIT
+## Question
 
-## 2. Intended Use & Executive Objective
-- **Primary Objective:** Estimate heterogeneous treatment effects (Conditional Average Treatment Effect, $\text{CATE} = \tau(X) = \mathbb{E}[Y(1) - Y(0) | X]$) to identify which retail grocery households genuinely increase purchase velocity when contacted with a promotional offer, versus households who would purchase regardless (*Sure Things*) or decrease engagement (*Sleeping Dogs*).
-- **Target Application:** Direct-to-consumer personalized promotion targeting, campaign spend optimization, and A/B test validation.
+Which households appear more responsive to a promotion, and which idea should a retailer test next?
 
-## 3. Data & Multi-Dataset Validation Framework
+This analysis compares historical spending changes among contacted and uncontacted households. Campaigns were not randomized, so the result is an exploratory ranking. It does not prove that an offer caused a change in spending.
 
-Because Dunnhumby campaign exposure is observational rather than randomized (promotional mailers were historically targeted based on past purchase behavior), this analysis follows a three-part causal validation strategy:
+## Data and evaluation
 
-1. **Hillstrom Benchmark:** Validation on a classic randomized email marketing trial ($N = 42,693$). Verifies that the meta-learner pipeline recovers the empirical randomized difference in visit rate ($+4.52\%$, 95% CI: $[+3.86\%, +5.18\%]$) without estimation bias ($\text{Estimated ATE} = +4.54\%$).
-2. **Part A — Randomized Ground Truth on X5 RetailHero ($N = 60,000$):**
-   - Validated randomized trial with treatment share = 49.98% ($|SMD| < 0.023$ across all customer pre-communication attributes).
-   - Ground truth empirical uplift: **+3.77 percentage points**.
-   - Evaluated S-, T-, X-, and DR-learners. DR-Learner achieved top performance (Qini = 0.0541, AUUC = 0.5505, Top-10% Uplift = +4.70%).
-3. **Part C — Confounding Stress Test:**
-   - Synthetically introduced severe tenure-based selection bias into X5 to evaluate debiasing power under unobserved confounding.
-   - **Naive Difference in Means:** Estimated +4.54% (**Bias = +0.78 percentage points**).
-   - **Inverse Propensity Weighting (IPW):** Estimated +3.62% (**Bias = -0.15 percentage points**).
-   - **Augmented IPW (AIPW / Doubly Robust):** Estimated +3.76% (**Bias = -0.01 percentage points**), recovering the true ground truth effect.
-4. **Part B — Observational Uplift on Dunnhumby Complete Journey ($N = 46,396$ units across 21 campaigns):**
-   - Units: 21 eligible campaigns with $\ge 100$ treated and $\ge 100$ control households in the 56-day pre-window.
-   - Propensity modeling with overlap trimming $[0.05, 0.95]$: Retained 28,334 units.
-   - **IPW Balance:** Reduced covariate Standardized Mean Differences from as high as 0.3903 down to strictly $< 0.064$ (pre-spend SMD: 0.0005, pre-trips SMD: 0.0003), satisfying the balance criterion ($|SMD| < 0.10$).
+- **Observation:** one household in one historical campaign. A household can appear in several campaigns.
+- **Inputs:** shopping activity during the preceding 56 days, campaign type, demographic-record availability, and the number of overlapping campaigns.
+- **Outcome:** spending per day during the campaign minus spending per day in the preceding 56 days.
+- **Models:** S-, T-, X- and doubly robust learners with LightGBM base regressors.
+- **Evaluation:** all three household-grouped folds. Each household is scored by models trained on other households. The propensity model is also fitted only on the training households in that fold.
+- **Overlap:** keep campaign observations with estimated contact probabilities from 0.05 to 0.95. This changes the population the findings describe.
 
-## 4. Benchmark Performance & Learner Comparison
+`data/outputs/uplift_eval.parquet` contains the pooled out-of-fold comparisons. Qini measures how well a score ranks differences in observed responses. On this observational dataset, Qini and top-segment treated/control contrasts can still reflect selection bias. The model with the highest pooled Qini supplies the exploratory ranking; there is no additional untouched test set after that selection.
 
-Evaluated on Dunnhumby holdout test households via 3-fold GroupKFold by household (preventing cross-campaign household data leakage):
+Household grouping prevents sharing a household across training and evaluation. It does not simulate a future campaign or eliminate unmeasured confounding. A separate time-based campaign evaluation would be needed before making a deployment decision.
 
-| Meta-Learner | Qini Score | AUUC | Uplift at Top 10% ($/day) | Uplift at Top 30% ($/day) | Mean CATE ($/day) |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **S-Learner (LightGBM)** | **0.6706** | **0.9820** | **+$0.9266** | **+$0.4758** | **+$0.5583** |
-| T-Learner (LightGBM) | 0.2526 | 0.7210 | +$0.4003 | +$0.3154 | +$0.6544 |
-| DR-Learner (Doubly Robust) | 0.2060 | 0.6955 | -$0.0708 | +$0.2361 | +$0.6828 |
-| X-Learner (LightGBM) | 0.0754 | 0.5565 | +$0.3134 | +$0.1145 | +$0.6739 |
+## Households, score bands and planning scenarios
 
-## 5. Customer Uplift Segmentation
+`uplift_observations.parquet` preserves every evaluated campaign-household observation. `uplift_scores.parquet` keeps each household once, using its latest evaluated campaign context. Those contexts may come from different dates: this is a retrospective planning roster, not a live campaign list.
 
-Households are partitioned into four behavioral archetypes based on treatment effect $\tau_i$ and baseline non-promoted purchase velocity:
+The four conventional segment labels are shorthand for model score bands:
 
-| Segment | Household Count | Share | Mean Uplift ($\Delta$ Spend/Day) | Avg 26-Week CLV | Strategic Retention Action |
-| :--- | :---: | :---: | :---: | :---: | :--- |
-| **Persuadables** | 8,860 | 93.8% | +$0.6068/day | $332.82 | **Target:** Highly responsive; generates substantial positive incremental margin. |
-| **Sure Things** | 246 | 2.6% | +$0.0227/day | $562.54 | **Suppress:** Loyal, high-spend households ($14.73/day baseline); avoid subsidizing organic demand. |
-| **Sleeping Dogs** | 202 | 2.1% | -$0.5984/day | $584.98 | **Do Not Contact:** High-value customers alienated by irrelevant coupon communication. |
-| **Lost Causes** | 137 | 1.5% | +$0.0874/day | $249.59 | **Deprioritize:** Low baseline activity ($2.46/day); promotional cost exceeds incremental yield. |
+| Label | Rule | Interpretation |
+|---|---|---|
+| Persuadables | Predicted change above $0.15/day | Positive model score |
+| Sleeping Dogs | Predicted change below −$0.15/day | Negative model score |
+| Sure Things | Score between those thresholds, higher prior spending | Near-zero score, higher baseline activity |
+| Lost Causes | Score between those thresholds, lower prior spending | Near-zero score, lower baseline activity |
 
-## 6. Targeting ROI Curve
+The labels are not observed customer traits. Negative scores do not establish irritation or harm and do not justify permanent suppression.
 
-Across targeting depths from 10% to 100% of the customer base ($\text{offer\_cost} = \$2.00$, $\text{gross\_margin} = 25\%$):
-- **Top 10% Policy:** Delivers **5.52x ROI** ($10,428 net profit vs $2,723 for random selection).
-- **Top 30% Policy:** Yields **3.61x ROI** ($20,435 net profit vs $8,173 for random selection), capturing 60% of total possible incremental gross profit.
-- **Blanket (100%) Targeting:** Net ROI falls to 1.44x due to coupon dilution and negative responses among *Sleeping Dogs*.
+`uplift_roi.parquet` models one offer per unique household at each contact depth. Assumptions are a **35-day scenario**, the configured gross-margin percentage, and the configured offer cost. Net profit is predicted extra spend × days × margin, minus contact costs; ROI is net profit divided by contact costs. Random-contact profit uses the overall mean predicted effect at the same contact count. These are model-based scenarios, not measured campaign returns or independent policy evaluations.
 
-## 7. Confirming A/B Test Design
+## Experiment proposal
 
-A power analysis was conducted via `statsmodels` to design a randomized controlled experiment validating the top-30% targeting policy against business-as-usual:
-- **Primary Metric:** Incremental spend per day ($\Delta \text{spend/day}$).
-- **Parameters:** $\alpha = 0.05$, Statistical Power ($1 - \beta$) = 0.80, two-sided independent $t$-test.
-- **Minimum Detectable Effect (MDE):** +$0.4758 spend/day ($\text{Cohen's } d = 0.3656$).
-- **Sample Size Required:** **119 households per arm** (238 total households).
-- **Recommended Duration:** **8 weeks** (two full 28-day retail purchase cycles) to observe steady-state repeat frequency across active store patrons.
+`ab_test_design.json` describes an eight-week household-randomized offer-versus-control experiment within the top 30% of the frozen ranking. Its $0.50/day minimum detectable effect is an explicit planning assumption. Sample size uses historical household outcome variance, not variation in predicted treatment effects. The output reports whether the available pool is large enough; a pilot should refine the variance estimate.
 
-## 8. Causal Assumptions & Governance
-1. **Conditional Unconfoundedness ($Y(0), Y(1) \perp T \mid X$):** Given pre-window shopping metrics (frequency, spend, discount share, coupon usage, concurrent campaigns), treatment assignment is conditionally independent of potential outcomes.
-2. **Positivity / Common Support ($0.05 \le e(X) \le 0.95$):** All evaluated households possess a non-zero probability of receiving treatment or control.
-3. **SUTVA:** No household spillover interference; grocery consumption within one household does not constrain adjacent household shopping choices.
+Freeze the eligible population and analysis before launch, randomize each household once, record other promotions and actual costs, and analyze everyone by their original assignment. Check net margin, complaints and opt-outs before considering rollout. This tests an offer within the selected pool; it does not by itself prove the ranking beats random targeting.
+
+## Supporting benchmarks
+
+Hillstrom and X5 RetailHero provide randomized-data benchmarks for the modeling workflow. Their findings and the synthetic confounding stress test belong to those datasets. They do not validate causal assumptions for historical Dunnhumby campaigns. Propensity balance can reveal observed differences; it cannot verify the absence of unmeasured confounding.
+
+## Reproduce
+
+After building the warehouse and CLV outputs:
+
+```bash
+.venv/bin/python -m retention_radar.uplift.dunnhumby
+.venv/bin/python -m retention_radar.uplift.power
+```
+
+See `uplift_metadata.json` for counts, assumptions and limitations from the current run.

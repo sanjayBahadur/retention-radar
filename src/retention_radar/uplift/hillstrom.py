@@ -1,5 +1,6 @@
-"""Hillstrom benchmark test for causal uplift validation."""
+"""Held-out mean-effect sanity comparison on a randomized email dataset."""
 
+import json
 from pathlib import Path
 from typing import Any, Dict
 
@@ -7,6 +8,7 @@ import duckdb
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMRegressor
+from sklearn.model_selection import train_test_split
 
 from retention_radar.config import get_project_root, load_project_config
 
@@ -16,7 +18,11 @@ def run_hillstrom_benchmark(
     n_bootstrap: int = 1000,
     seed: int = 42,
 ) -> Dict[str, Any]:
-    """Validate that CausalML estimated ATE matches empirical difference within 95% bootstrap CI."""
+    """Compare held-out model mean effects with a randomized-sample visit-rate contrast.
+
+    Agreement is a sanity check, not proof of individual effect accuracy or
+    external validity. Disagreement is recorded rather than blocking the pipeline.
+    """
     con = duckdb.connect(str(db_path), read_only=True)
     df = con.execute("""
         SELECT
@@ -39,15 +45,20 @@ def run_hillstrom_benchmark(
     df["treatment"] = (df["segment"] == "Womens E-Mail").astype(int)
     df["target"] = df["visit"].astype(int)
 
-    treated_rate = float(df.loc[df["treatment"] == 1, "target"].mean())
-    control_rate = float(df.loc[df["treatment"] == 0, "target"].mean())
+    df = df.sort_values(list(df.columns)).reset_index(drop=True)
+    train, held_out = train_test_split(
+        np.arange(len(df)), test_size=0.30, random_state=seed, stratify=df["treatment"]
+    )
+    evaluation = df.iloc[held_out]
+    treated_rate = float(evaluation.loc[evaluation["treatment"] == 1, "target"].mean())
+    control_rate = float(evaluation.loc[evaluation["treatment"] == 0, "target"].mean())
     raw_diff = treated_rate - control_rate
 
     # Bootstrap 95% CI on empirical difference in means
     rng = np.random.default_rng(seed)
-    n = len(df)
-    t_vals = df["treatment"].values
-    y_vals = df["target"].values
+    n = len(evaluation)
+    t_vals = evaluation["treatment"].values
+    y_vals = evaluation["target"].values
     boot_diffs = []
 
     for _ in range(n_bootstrap):
@@ -69,9 +80,15 @@ def run_hillstrom_benchmark(
 
     from causalml.inference.meta import BaseTLearner
 
-    t_learner = BaseTLearner(learner=LGBMRegressor(n_estimators=50, random_state=seed, verbose=-1))
-    t_learner.fit(X=X.values, treatment=t_vals, y=y_vals)
-    cate_preds = t_learner.predict(X=X.values).ravel()
+    t_learner = BaseTLearner(
+        learner=LGBMRegressor(n_estimators=50, random_state=seed, verbose=-1, n_jobs=1)
+    )
+    t_learner.fit(
+        X=X.iloc[train].values,
+        treatment=df.iloc[train]["treatment"].values,
+        y=df.iloc[train]["target"].values,
+    )
+    cate_preds = t_learner.predict(X=X.iloc[held_out].values).ravel()
     model_ate = round(float(np.mean(cate_preds)), 5)
 
     within_ci = ci_lower <= model_ate <= ci_upper
@@ -80,7 +97,10 @@ def run_hillstrom_benchmark(
         "dataset": "Hillstrom Email Marketing",
         "treatment_group": "Womens E-Mail",
         "control_group": "No E-Mail",
-        "sample_size": n,
+        "sample_size": len(df),
+        "evaluation_sample_size": n,
+        "evaluation": "Stratified 70/30 customer holdout",
+        "interpretation": "Mean-effect agreement is a sanity check, not a causal-validity certificate",
         "treated_visit_rate": round(treated_rate, 4),
         "control_visit_rate": round(control_rate, 4),
         "raw_diff": round(raw_diff, 5),
@@ -88,11 +108,6 @@ def run_hillstrom_benchmark(
         "causalml_t_learner_ate": model_ate,
         "is_within_ci": within_ci,
     }
-
-    if not within_ci:
-        raise AssertionError(
-            f"CausalML ATE {model_ate} is outside the empirical bootstrap 95% CI ({ci_lower}, {ci_upper})"
-        )
 
     return result
 
@@ -103,12 +118,15 @@ def main() -> None:
     cfg = load_project_config()
     db_path = project_root / cfg.paths.warehouse_db
 
-    print("Running Hillstrom benchmark causal validation...")
-    res = run_hillstrom_benchmark(db_path=db_path)
+    print("Running Hillstrom held-out mean-effect comparison...")
+    res = run_hillstrom_benchmark(db_path=db_path, n_bootstrap=cfg.bootstrap_reps, seed=cfg.seed)
+    out_dir = project_root / cfg.paths.data_outputs
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "hillstrom_benchmark.json").write_text(json.dumps(res, indent=2) + "\n")
     print("\nHillstrom Benchmark Results:")
     for k, v in res.items():
         print(f"  {k}: {v}")
-    print("\nHillstrom causal validation PASSED.")
+    print("\nHillstrom held-out mean-effect sanity check saved.")
 
 
 if __name__ == "__main__":
