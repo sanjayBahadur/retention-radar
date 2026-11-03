@@ -1,135 +1,80 @@
-"""Lifecycle page - Markov transition matrix, absorbing fundamentals, and survival curves."""
+"""Explain lifecycle states before showing transition estimates."""
 
-import json
-from pathlib import Path
-
-import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
-st.set_page_config(
-    page_title="Markov Lifecycle Dynamics | Retention Radar", page_icon="🔄", layout="wide"
+from retention_radar.dashboard import STATE_COLORS, STATES, chart, page, read_output
+
+page(
+    "How shopping activity changes",
+    "A lifecycle state summarizes recent shopping activity. Each step below represents 28 days.",
 )
-
-st.title("🔄 Customer Lifecycle Dynamics & Markov Modeling")
-st.markdown("Mathematical modeling of customer health progression across 28-day periods.")
-
-base_dir = Path(__file__).resolve().parent.parent.parent / "data" / "outputs"
-
-# 1. Transition Matrix
-st.subheader("1. Empirical 1-Step Transition Probability Matrix P")
-trans_path = base_dir / "transition_matrix.parquet"
-p_ci_path = base_dir / "markov_P.parquet"
-
-if p_ci_path.exists():
-    df_p = pd.read_parquet(p_ci_path)
-    # Pivot to square matrix
-    pivot_p = df_p.pivot(index="from_state", columns="to_state", values="p").fillna(0.0)
-
-    fig_heat = px.imshow(
-        pivot_p,
-        labels=dict(x="Destination State (t+1)", y="Source State (t)", color="Probability"),
-        x=pivot_p.columns,
-        y=pivot_p.index,
-        color_continuous_scale="Blues",
-        text_auto=".3f",
-        title="Markov State Transition Matrix (Smoothed MLE with 95% Bootstrap CIs)",
+with st.expander("What do the six states mean?", expanded=True):
+    st.markdown("""
+- **New:** first observed purchase after the warm-up window.
+- **Champion:** shopped this period, with trailing spending in the highest quarter of active households.
+- **Regular:** shopped this period and is neither New nor Champion.
+- **At-Risk:** missed one period after shopping in the previous period.
+- **Dormant:** missed two or three consecutive periods.
+- **Lapsed:** missed four or more consecutive periods.
+""")
+distribution = read_output("state_distribution.parquet")
+st.subheader("The mix of household states over time")
+figure = px.area(
+    distribution,
+    x="period_id",
+    y="household_count",
+    color="state",
+    category_orders={"state": STATES},
+    color_discrete_map=STATE_COLORS,
+    labels={"period_id": "28-day period", "household_count": "Households", "state": "State"},
+)
+chart(figure)
+st.subheader("Where do households move next?")
+transitions = read_output("markov_P.parquet")
+matrix = transitions.pivot(
+    index="source_state", columns="target_state", values="transition_probability"
+).reindex(index=STATES, columns=STATES)
+figure = px.imshow(
+    matrix,
+    text_auto=".0%",
+    color_continuous_scale=["#f5f3ec", "#234e3b"],
+    labels={"x": "Next period", "y": "Current period", "color": "Probability"},
+    zmin=0,
+    zmax=1,
+)
+figure.update_layout(height=460)
+chart(figure)
+st.caption(
+    "Read across a row. Each cell estimates the chance of moving to that state in one period. This empirical matrix allows return visits from Lapsed. A separate long-run calculation treats Lapsed as absorbing."
+)
+with st.expander("Technical detail: long-range estimates and observed survival"):
+    metrics = read_output("markov_metrics.json")
+    st.write(
+        "Expected time to lapse projects current transition patterns far beyond the observation window. It depends on stable behavior and the absorbing-state simplification."
     )
-    fig_heat.update_layout(height=420)
-    st.plotly_chart(fig_heat, use_container_width=True)
-else:
-    st.info("Transition matrix artifact not found.")
-
-st.markdown("---")
-
-# 2. Expected Days to Lapse & Fundamental Matrix
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("2. Expected Days to Full Lapse")
-    metrics_path = base_dir / "markov_metrics.json"
-    if metrics_path.exists():
-        with open(metrics_path) as f:
-            mm = json.load(f)
-            lapse_dict = mm.get("expected_days_to_lapse", {})
-            if lapse_dict:
-                df_lapse = (
-                    pd.DataFrame(lapse_dict).T.reset_index().rename(columns={"index": "state"})
-                )
-                fig_lapse = go.Figure()
-                fig_lapse.add_trace(
-                    go.Bar(
-                        x=df_lapse["state"],
-                        y=df_lapse["mean_days"],
-                        error_y=dict(
-                            type="data",
-                            symmetric=False,
-                            array=df_lapse["ci_upper_95"] - df_lapse["mean_days"],
-                            arrayminus=df_lapse["mean_days"] - df_lapse["ci_lower_95"],
-                        ),
-                        marker_color=["#10B981", "#1B365D", "#0284C7", "#F59E0B", "#EA580C"],
-                        text=[f"{v:.0f}d" for v in df_lapse["mean_days"]],
-                        textposition="auto",
-                    )
-                )
-                fig_lapse.update_layout(
-                    xaxis_title="Current Customer State",
-                    yaxis_title="Expected Days until Lapsed",
-                    title="Absorbing Chain Fundamental Matrix Days-to-Absorption",
-                    height=380,
-                )
-                st.plotly_chart(fig_lapse, use_container_width=True)
-    else:
-        st.info("Markov metrics not found.")
-
-with col2:
-    st.subheader("3. Markov Reward CLV by State")
-    if metrics_path.exists():
-        with open(metrics_path) as f:
-            mm = json.load(f)
-            clv_dict = mm.get("markov_reward_clv", {})
-            if clv_dict:
-                df_rclv = pd.DataFrame(list(clv_dict.items()), columns=["state", "reward_clv"])
-                fig_rclv = px.bar(
-                    df_rclv,
-                    x="state",
-                    y="reward_clv",
-                    color="state",
-                    color_discrete_sequence=[
-                        "#10B981",
-                        "#1B365D",
-                        "#0284C7",
-                        "#F59E0B",
-                        "#EA580C",
-                        "#94A3B8",
-                    ],
-                    text_auto="$.2f",
-                    title="Infinite-Horizon Discounted Expected Margin ($)",
-                    labels={"state": "Starting State", "reward_clv": "Reward CLV ($)"},
-                )
-                fig_rclv.update_layout(height=380, showlegend=False)
-                st.plotly_chart(fig_rclv, use_container_width=True)
-
-st.markdown("---")
-
-# 3. Kaplan-Meier Survival Curves
-st.subheader("4. Empirical Kaplan-Meier Survival Curves")
-surv_path = base_dir / "survival_curves.parquet"
-if surv_path.exists():
-    df_surv = pd.read_parquet(surv_path)
-    fig_surv = px.line(
-        df_surv,
-        x="period",
+    st.write(
+        f"Backtest distribution error (lower is better): Markov "
+        f"{metrics['backtest_avg_markov_tvd']:.4f}; unchanged-distribution baseline "
+        f"{metrics['backtest_avg_persistence_tvd']:.4f}."
+    )
+    st.caption(
+        "Assumption checks also find evidence against a time-stable, first-order chain. "
+        "Use lifecycle groups to describe shopping activity; treat long-range projections cautiously."
+    )
+    st.json(metrics["expected_days_to_lapse"])
+    survival = read_output("survival_curves.parquet")
+    figure = px.line(
+        survival,
+        x="timeline_days",
         y="survival_probability",
-        color="starting_state",
+        color="baseline_state",
+        color_discrete_map=STATE_COLORS,
         labels={
-            "period": "Duration (28-day periods)",
-            "survival_probability": "Retention Probability (Not Lapsed)",
+            "timeline_days": "Days since baseline",
+            "survival_probability": "Share not yet lapsed",
+            "baseline_state": "Starting state",
         },
-        title="Time-to-Lapsed Survival Curves Stratified by Baseline State",
     )
-    fig_surv.update_layout(height=400)
-    st.plotly_chart(fig_surv, use_container_width=True)
-else:
-    st.info("Survival curves artifact not found.")
+    figure.update_yaxes(tickformat=".0%")
+    chart(figure)
