@@ -1,33 +1,20 @@
 # Retention Radar
 
-**Who should a retailer contact when its retention budget is limited?**
+I analyzed purchase histories for 2,500 grocery households to explore where a retailer could focus a limited retention budget. Three findings shaped the project:
 
-Retention Radar explores shopping patterns across 2,500 grocery households in Dunnhumby's *The Complete Journey*. It brings SQL analysis, customer-risk prediction, and a simple decision dashboard together to examine that question.
+- **The highest-risk fifth contained 75% of later departures.** Selecting 20% of households at each test cutoff identified 534 of 712 departures across the evaluation periods. A departure means eight weeks without purchases.
+- **Recent spending was a strong customer-value baseline.** Using the previous 26 weeks of spend produced a lower average forecast error than the more complex forecasting models in the later 26-week comparison.
+- **Category shares changed around dormancy.** Diapers and poultry showed declines of 3.61 and 3.33 percentage points relative to the active comparison group.
 
-**[Explore the visual case study](https://sanjaybahadur.github.io/retention-radar/)** · [Short findings](reports/executive_summary.md) · [Technical notes](reports/technical_report.md)
+**[Explore the dashboard](https://sanjaybahadur.github.io/retention-radar/)** · [Findings and proposed test](reports/executive_summary.md) · [Technical notes](reports/technical_report.md)
 
-## What the project does
+The project uses Dunnhumby's *The Complete Journey*, with SQL and dbt models in DuckDB, Python analysis, and a Streamlit application. The dashboard follows the findings from shopping behavior to risk ranking and an outreach cost scenario. Historical campaign analysis adds an exploratory view of response to offers.
 
-1. **Understand shopping changes.** Compare household activity and category spending over time.
-2. **Rank departure risk.** Estimate which households will make no purchases in the next eight weeks, comparing a tree model with simpler baselines.
-3. **Explore an outreach decision.** Combine predicted risk, estimated customer value, and explicit cost assumptions. Examine historical campaign response as a separate, observational analysis.
-4. **Design a test.** Propose a randomized experiment before treating estimated savings as real business impact.
+The cost scenario uses forecast margin, contact cost, and an assumed save rate. [Generated results](data/outputs/results.json), [evaluation details](reports/evaluation.md), and [model notes](reports/model_cards/) provide the numbers and methods behind the charts.
 
-A risk prediction answers **“Who might stop visiting?”** It does not answer **“Whose behavior will an offer change?”** That distinction guides the analysis.
+## Run locally
 
-## What to take away
-
-- Ranking households by purchase history captures roughly three quarters of later departures within a 20% contact budget at each test cutoff. The comparison includes simple baselines and household-clustered uncertainty estimates.
-- Recent spending beat the more complex customer-value forecasts on mean absolute error in this temporal comparison. More complexity did not automatically improve the result.
-- Category spending changes are useful clues to investigate. They do not establish competitor switching or prove that a category-specific offer would prevent departure.
-- Estimated outreach returns depend on forecast customer value, contact costs, and an assumed save rate. They are scenarios, not money earned by a deployed campaign.
-- Historical campaigns were not randomly assigned. Their estimated treatment effects require a controlled test before use in an automated contact or suppression policy.
-
-The dashboard and [generated results](data/outputs/results.json) contain the current numbers. Keeping those figures in generated outputs avoids maintaining conflicting copies throughout the documentation.
-
-## Try it
-
-The visual case study works in a browser without installing Python. To explore the Streamlit application locally:
+The linked dashboard opens directly in a browser. To run the Streamlit application:
 
 ```bash
 git clone https://github.com/sanjayBahadur/retention-radar.git
@@ -38,43 +25,29 @@ pip install -e ".[dev]"
 make app
 ```
 
-Open `http://localhost:8501`. The application reads the included analysis outputs; the original transaction data and warehouse are needed only to rebuild the full analysis.
+Open `http://localhost:8501`. Included outputs are enough to explore the application. Alternatively, run `docker compose up --build`.
 
-Docker is another local option:
-
-```bash
-docker compose up --build
-```
-
-## Explore the work
-
-| Resource | What it explains |
-| --- | --- |
-| [Dashboard source](app/Home.py) | Guided overview and interactive exploration |
-| [SQL analysis](dbt/analyses/) | Cohorts, revenue concentration, basket size, and campaign reach |
-| [dbt models](dbt/models/) | Staging, basket aggregation, and household lifecycle tables |
-| [Technical notes](reports/technical_report.md) | Evaluation design, units, assumptions, and limitations |
-| [Evaluation review](reports/evaluation.md) | Error rates, sample counts, and changes across time and groups |
-| [Model cards](reports/model_cards/) | Intended use and evaluation of churn, customer value, and uplift models |
-| [BI export guide](bi/README.md) | Table grains and examples for Tableau or Power BI |
-| [Data dictionary](docs/data_dictionary.md) | Important fields and lifecycle definitions |
-
-## Development and rebuilding
+## Development
 
 ```bash
 make lint
 make test
-make fixture  # synthetic raw data → dbt → features → models; no credentials needed
+make fixture  # build and check a small synthetic dataset without credentials
+make reports  # rebuild reports and the dashboard from existing outputs
 ```
 
-The full analysis uses Python 3.12, DuckDB, dbt, pandas, scikit-learn, LightGBM, and Streamlit. Financial assumptions live in [project.yaml](configs/project.yaml); lifecycle definitions live in [states.yaml](configs/states.yaml). Use `make reports` to rebuild the case study, findings, error review and walkthrough notebook from existing artifacts. With the original raw data available, `make all` rebuilds the full analysis.
+With the original raw datasets available, `make all` rebuilds the analysis. Financial assumptions are in [project.yaml](configs/project.yaml), and lifecycle definitions are in [states.yaml](configs/states.yaml). The [technical notes](reports/technical_report.md) explain evaluation windows, assumptions, and the full build sequence.
 
-See the [technical notes](reports/technical_report.md) for the build sequence and validation limits.
+## Code and analysis
 
-## Boundaries
+| Resource | Contents |
+| --- | --- |
+| [SQL analysis](dbt/analyses/) | Cohorts, revenue concentration, baskets, and campaign reach |
+| [dbt models](dbt/models/) | Staging, basket aggregation, and household lifecycle tables |
+| [Dashboard source](app/Home.py) | Guided overview and interactive exploration |
+| [Evaluation review](reports/evaluation.md) | Missed departures, false alarms, and results across periods |
+| [Model cards](reports/model_cards/) | Churn, customer value, and historical campaign response |
+| [BI export guide](bi/README.md) | Tableau and Power BI connection examples |
+| [Data dictionary](docs/data_dictionary.md) | Table grains, fields, and lifecycle definitions |
 
-This is a portfolio analysis, not a deployed retention service. It studies one retailer's historical data. It cannot observe purchases elsewhere, establish an individual customer's motives, or demonstrate realized campaign savings. Demographic audit groups are small, and removing demographic inputs does not establish fairness.
-
-Code is available under the [MIT License](LICENSE). Dataset terms are separate; see the [data use note](docs/data_governance.md).
-
-Built by [Sanjay Bahadur](https://github.com/sanjayBahadur).
+Built by [Sanjay Bahadur](https://github.com/sanjayBahadur). Code: [MIT License](LICENSE). Dataset terms: [data use note](docs/data_governance.md).

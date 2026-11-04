@@ -1,30 +1,24 @@
-# Retention Radar: findings and next decision
+# Retention Radar: findings and proposed test
 
-**Question:** How should a grocery retailer prioritize limited retention outreach?
+Purchase history helped concentrate departures into a smaller review list. Across four later test periods, selecting the highest-risk 20% at each cutoff identified **534 of 712 departures (75%)**. A departure means no purchases in the following eight weeks. The evaluation covers 9,397 household observations; some households appear at several cutoffs.
 
-The project follows purchase histories for 2,500 households. It combines a description of changing shopping behavior with predictions of future inactivity and an exploration of historical campaign response.
+Two other results helped shape the recommendation:
 
-## What the evidence supports
+- **A simple value forecast held up well.** Reusing the previous 26 weeks of spending produced an average absolute error of **$339 per household**, compared with **$356 for LightGBM**, when forecasting the next 26 weeks of sales.
+- **Shopping changes differed by category.** Around dormancy, diapers and poultry lost **3.61 and 3.33 percentage points** of spending share relative to the active comparison group. These observations give an analyst specific categories to investigate.
 
-**Shopping patterns change as households become inactive.** Category-share comparisons highlight where spending changes differ from an active comparison group. A share change is measured in percentage points; it is different from a percentage fall in dollars spent. The comparison does not reveal where shoppers went or why their habits changed.
+The priority lists also included **1,344 cases where shopping continued**, while **178 departures fell outside them**. That tradeoff matters when deciding how much outreach to fund. The [evaluation review](evaluation.md) breaks it down by period and customer state.
 
-**Risk models can help order a contact list.** The evaluation asks whether households make no purchases in the following two 28-day periods. Models are compared on later periods, with household-clustered confidence intervals because the same household can appear at several cutoffs. A small difference between model scores is not enough to claim statistically established superiority.
+## Outreach decision
 
-**Predicted risk and responsiveness are different.** A household likely to stop visiting may still be unaffected by an offer. Historical campaign models explore response differences, but campaign selection and unmeasured factors can bias those estimates.
+Use the ranking to focus a small offer experiment. The dashboard's estimated-margin scenario lets a reviewer vary the save rate while keeping contact costs visible. Historical campaign models offer a separate, exploratory response ranking for choosing a test population.
 
-See the [visual case study](https://sanjaybahadur.github.io/retention-radar/) and [generated results](../data/outputs/results.json) for current values. Forecasts and financial scenarios change when models or assumptions change; they are not realized returns.
+## Proposed experiment
 
-## Recommended decision
+Freeze the highest 30% of the response ranking and randomly assign each eligible household to receive one defined offer or no study offer. Keep that assignment for eight weeks and record other promotions in both groups.
 
-Use risk rankings to propose a small, budget-limited experiment. Keep campaign-effect estimates exploratory. Do not automatically suppress households based on a negative estimated treatment effect.
+Measure average daily spend per assigned household as the primary outcome. Also track contribution after offer costs, continued activity, complaints, and opt-outs. Set the minimum worthwhile improvement, analysis, and rollout criteria before starting.
 
-## Experiment brief
+For an assumed detectable increase of **$0.50 per day**, the current planning calculation requires **5,340 households**, compared with **739 available** in the selected pool. A larger population or a revised pilot design would be needed for that target.
 
-- **Eligibility:** Unique households in the highest 30% of a frozen exploratory response ranking, subject to contact permissions. Freeze eligibility before assignment.
-- **Assignment:** Randomize eligible households 1:1 to a defined offer or no additional offer. Stratify by prior spend and score band; keep assignment fixed throughout the experiment.
-- **Primary outcome:** Average spend per assigned household per day over eight weeks, matching the included power calculation. Analyze everyone as assigned, including nonresponders.
-- **Secondary outcomes:** Net contribution after measured offer and delivery costs, visits, and continued activity. Track opt-outs, complaints, and contact frequency as guardrails.
-- **Sample size:** Set a minimum worthwhile effect and estimate outcome variability before launch. The included power calculation is a planning aid, not evidence that its assumed effect will occur.
-- **Decision rule:** Agree on a meaningful effect threshold, uncertainty interval, budget limit, and guardrail criteria before seeing results. Report the primary outcome first; label subgroup analyses exploratory.
-
-A measured trial would estimate whether an offer changes behavior in the selected pool and whether any improvement covers its cost. It would not by itself establish that this ranking beats random targeting. The historical analysis alone cannot settle that decision.
+[Explore the dashboard](https://sanjaybahadur.github.io/retention-radar/) for the charts and scenarios. [Technical notes](technical_report.md) explain the evaluation, financial assumptions, and interpretation of historical campaigns; [generated results](../data/outputs/results.json) contain the current values.
