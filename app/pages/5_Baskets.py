@@ -6,7 +6,7 @@ import streamlit as st
 from retention_radar.dashboard import GREEN, chart, page, read_output
 
 page(
-    "What changes in the shopping basket?",
+    "Shopping categories",
     "Compare category spending shares around first dormancy, then inspect products that tend to appear together.",
 )
 categories = read_output("early_warning_categories.parquet")
@@ -30,13 +30,13 @@ st.write(
     "A negative bar means spending share fell more in the dormant group than in the active comparison group. A 3-point share change is different from a 3% drop in spending."
 )
 st.caption(
-    "Earlier and later three-period windows are compared; the later window includes dormancy itself. This does not establish a prospective warning interval. Competitor purchases and household motivations are unobserved."
+    "The two three-period windows cover earlier shopping and the approach to first dormancy."
 )
 with st.expander("Inspect the category calculations"):
     st.dataframe(categories, hide_index=True, width="stretch")
 st.subheader("Which products tend to appear together?")
 st.write(
-    "Basket associations can suggest merchandising questions. They do not show that a placement or promotion will increase sales or prevent departures."
+    "The rules below show categories that appeared together more often than their individual purchase frequencies would suggest."
 )
 rules = read_output("basket_rules.parquet")
 a, b = st.columns(2)

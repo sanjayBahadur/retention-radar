@@ -26,11 +26,11 @@ def page(title: str, description: str) -> None:
         </style>""",
         unsafe_allow_html=True,
     )
-    st.caption("RETENTION RADAR · A RETAIL DATA CASE STUDY")
+    st.caption("RETENTION RADAR")
     st.title(title)
     st.write(description)
-    st.sidebar.caption(
-        "Historical analysis. Financial values are modeled scenarios, not realized campaign returns."
+    st.sidebar.markdown(
+        "[Project and source code](https://github.com/sanjayBahadur/retention-radar)"
     )
 
 

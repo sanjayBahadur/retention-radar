@@ -58,9 +58,8 @@ with st.expander("Technical detail: long-range estimates and observed survival")
         f"{metrics['backtest_avg_markov_tvd']:.4f}; unchanged-distribution baseline "
         f"{metrics['backtest_avg_persistence_tvd']:.4f}."
     )
-    st.caption(
-        "Assumption checks also find evidence against a time-stable, first-order chain. "
-        "Use lifecycle groups to describe shopping activity; treat long-range projections cautiously."
+    st.markdown(
+        "[Lifecycle diagnostics](https://github.com/sanjayBahadur/retention-radar/blob/main/reports/technical_report.md#7-category-changes-lifecycle-models-and-attribution)"
     )
     st.json(metrics["expected_days_to_lapse"])
     survival = read_output("survival_curves.parquet")

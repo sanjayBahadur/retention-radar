@@ -6,8 +6,8 @@ import streamlit as st
 from retention_radar.dashboard import GREEN, chart, page, read_output
 
 page(
-    "Who appears most likely to leave?",
-    "The model ranks households by the chance of no shopping trips in the next 56 days. Risk ranking and response to an offer are different questions.",
+    "Churn model",
+    "The ranking estimates the chance of no shopping trips in the next 56 days.",
 )
 comparison = read_output("churn_model_comparison.parquet")
 selected = comparison.loc[comparison["model"] == "LightGBM"].iloc[0]
@@ -19,18 +19,18 @@ c.metric(
     f"{selected.pr_auc_ci_lower:.3f}–{selected.pr_auc_ci_upper:.3f}",
 )
 st.caption(
-    "Capture is recall at a fixed outreach budget. PR-AUC summarizes performance across thresholds; higher is better. These figures measure prediction, not prevented departures."
+    "Capture is the share of departures in the highest-scored fifth at each cutoff. Average precision summarizes ranking quality."
 )
-with st.expander("Compare the models and understand the evaluation"):
+with st.expander("Model comparison"):
     st.dataframe(comparison, hide_index=True, width="stretch")
     st.write(
-        "Compare complex models with logistic regression and simple behavioral baselines. Overlapping confidence intervals do not establish a clear performance advantage. Household-period test rows can repeat the same household."
+        "Test cutoffs 20–23 follow training cutoffs 6–13 and validation cutoffs 16–17. Confidence intervals resample whole households."
     )
     st.markdown(
         "[Read the evaluation and error analysis](https://github.com/sanjayBahadur/retention-radar/blob/main/reports/evaluation.md)"
     )
 scores = read_output("churn_scores.parquet")
-st.subheader("How risk is distributed")
+st.subheader("Risk groups")
 means = scores.groupby("risk_decile", as_index=False)["calibrated_p"].mean()
 figure = px.bar(
     means,
@@ -44,9 +44,9 @@ figure = px.bar(
 )
 figure.update_yaxes(tickformat=".0%")
 chart(figure)
-st.subheader("Inspect the scored list")
+st.subheader("Household scores")
 st.caption(
-    "Public-dataset household IDs. Model reasons explain associations behind the score, not causes of departure."
+    "Household IDs from the public dataset, with the main factors contributing to each score."
 )
 deciles = st.multiselect("Risk groups", list(range(1, 11)), default=[1, 2])
 query = st.text_input("Household ID contains")
